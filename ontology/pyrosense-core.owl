@@ -1,0 +1,250 @@
+@prefix owl:  <http://www.w3.org/2002/07/owl#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix swrl: <http://www.w3.org/2003/11/swrl#> .
+@prefix swrlb:<http://www.w3.org/2003/11/swrlb#> .
+@prefix pyro: <http://pyrosense.io/ontology#> .
+
+# ============================================================
+#  PyroSense Çekirdek Ontoloji — OWL 2 / Turtle Formatı
+#  Versiyon: 1.0 | Tarih: 2026
+#
+#  İçerik:
+#    - Çevre Sınıfları (ForestType, Topology, DroughtIndex)
+#    - Sensör Sınıfları (SensorNode, SensorReading)
+#    - Meteoroloji Sınıfları (WeatherObservation, WindClass)
+#    - Risk Sınıfları (RiskLevel, FireAlarm)
+#    - SWRL Kuralları (5 temel kural)
+# ============================================================
+
+<http://pyrosense.io/ontology>
+    a owl:Ontology ;
+    rdfs:label "PyroSense Orman Yangını Erken Uyarı Ontolojisi" ;
+    rdfs:comment "OWL 2 tabanlı çok katmanlı yangın riski ontolojisi" ;
+    owl:versionInfo "1.0" .
+
+# ============================================================
+# BÖLÜM 1: ÇEVRE ONTOLOJİSİ
+# ============================================================
+
+# --- Orman Tipi ---
+pyro:ForestType a owl:Class ;
+    rdfs:label "Orman Tipi" .
+
+pyro:ConiferForest a owl:Class ;
+    rdfs:subClassOf pyro:ForestType ;
+    rdfs:label "İbreli Orman (Çam)" ;
+    rdfs:comment "En yüksek yangın riski. Reçineli yapı, düşük nem tutma." .
+
+pyro:DeciduousForest a owl:Class ;
+    rdfs:subClassOf pyro:ForestType ;
+    rdfs:label "Yapraklı Orman (Kayın)" ;
+    rdfs:comment "Daha düşük yangın riski. Daha yüksek nem tutma kapasitesi." .
+
+pyro:MixedForest a owl:Class ;
+    rdfs:subClassOf pyro:ForestType ;
+    rdfs:label "Karma Orman" .
+
+pyro:ShrubLand a owl:Class ;
+    rdfs:subClassOf pyro:ForestType ;
+    rdfs:label "Maki / Çalılık" ;
+    rdfs:comment "Kuru dönemde yüksek risk." .
+
+# --- Topografya ---
+pyro:Topology a owl:Class ;
+    rdfs:label "Topografya" .
+
+pyro:ValleyTopology a owl:Class ;
+    rdfs:subClassOf pyro:Topology ;
+    rdfs:label "Vadi" ;
+    rdfs:comment "Rüzgar kanallaşma etkisi — yangın yayılım hızı artar." .
+
+pyro:SlopeTopology a owl:Class ;
+    rdfs:subClassOf pyro:Topology ;
+    rdfs:label "Yamaç" .
+
+pyro:RidgeTopology a owl:Class ;
+    rdfs:subClassOf pyro:Topology ;
+    rdfs:label "Sırt" .
+
+pyro:PlainTopology a owl:Class ;
+    rdfs:subClassOf pyro:Topology ;
+    rdfs:label "Düzlük" .
+
+# --- Kuraklık İndeksi ---
+pyro:DroughtIndex a owl:Class ;
+    rdfs:label "Kuraklık İndeksi" ;
+    rdfs:comment "Son 30 günlük yağışa göre hesaplanır (Open-Meteo)" .
+
+pyro:NormalMoisture a owl:Class ;
+    rdfs:subClassOf pyro:DroughtIndex ;
+    rdfs:label "Normal Nem" ;
+    rdfs:comment "Yağış >= 10mm/30gün" .
+
+pyro:ModerateDrought a owl:Class ;
+    rdfs:subClassOf pyro:DroughtIndex ;
+    rdfs:label "Orta Kuraklık" ;
+    rdfs:comment "Yağış 2-10mm/30gün" .
+
+pyro:ExtremeDrought a owl:Class ;
+    rdfs:subClassOf pyro:DroughtIndex ;
+    rdfs:label "Aşırı Kuraklık" ;
+    rdfs:comment "Yağış < 2mm/30gün" .
+
+# --- Bölge (Izgarası) ---
+pyro:Zone a owl:Class ;
+    rdfs:label "İzleme Bölgesi" .
+
+pyro:hasForestType a owl:ObjectProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range pyro:ForestType ;
+    rdfs:label "orman tipi" .
+
+pyro:hasTopology a owl:ObjectProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range pyro:Topology ;
+    rdfs:label "topografya" .
+
+pyro:hasDroughtIndex a owl:ObjectProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range pyro:DroughtIndex ;
+    rdfs:label "kuraklık indeksi" .
+
+# ============================================================
+# BÖLÜM 2: SENSÖR ONTOLOJİSİ (W3C SSN'den türetilmiş)
+# ============================================================
+
+pyro:SensorNode a owl:Class ;
+    rdfs:label "Sensör Düğümü" ;
+    rdfs:comment "Fiziksel veya simüle edilmiş IoT sensör düğümü" .
+
+pyro:SensorReading a owl:Class ;
+    rdfs:label "Sensör Okuması" .
+
+# Sayısal özellikler
+pyro:temperature      a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Sıcaklık (°C)" .
+pyro:humidity         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Nem (%)" .
+pyro:smokePPM         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Duman (PPM)" .
+pyro:uvIndex          a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "UV İndeksi" .
+pyro:windSpeedMs      a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Rüzgar Hızı (m/s)" .
+pyro:windDirDeg       a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:integer ; rdfs:label "Rüzgar Yönü (derece)" .
+pyro:flameDetected    a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:boolean ; rdfs:label "Alev Tespiti" .
+pyro:co2PPM           a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "CO2 (PPM)" .
+
+# İlişkiler
+pyro:hasReading a owl:ObjectProperty ;
+    rdfs:domain pyro:SensorNode ;
+    rdfs:range pyro:SensorReading .
+
+pyro:locatedInZone a owl:ObjectProperty ;
+    rdfs:domain pyro:SensorNode ;
+    rdfs:range pyro:Zone .
+
+# ============================================================
+# BÖLÜM 3: METEOROLOJİ ONTOLOJİSİ
+# ============================================================
+
+pyro:WeatherObservation a owl:Class ;
+    rdfs:label "Hava Durumu Gözlemi" ;
+    rdfs:comment "Open-Meteo API'den gelen meteoroloji verisi" .
+
+pyro:WindClass a owl:Class ;
+    rdfs:label "Rüzgar Sınıfı" .
+
+pyro:CalmWind    a owl:Class ; rdfs:subClassOf pyro:WindClass ; rdfs:label "Sakin (< 2 m/s)" .
+pyro:LightWind   a owl:Class ; rdfs:subClassOf pyro:WindClass ; rdfs:label "Hafif (2-5 m/s)" .
+pyro:ModerateWind a owl:Class ; rdfs:subClassOf pyro:WindClass ; rdfs:label "Orta (5-8 m/s)" .
+pyro:StrongWind  a owl:Class ; rdfs:subClassOf pyro:WindClass ; rdfs:label "Kuvvetli (> 8 m/s)" .
+
+# ============================================================
+# BÖLÜM 4: RİSK ONTOLOJİSİ
+# ============================================================
+
+pyro:RiskLevel a owl:Class ;
+    rdfs:label "Risk Seviyesi" .
+
+pyro:NegligibleRisk a owl:Class ; rdfs:subClassOf pyro:RiskLevel ; rdfs:label "Önemsiz (0-19)" .
+pyro:LowRisk        a owl:Class ; rdfs:subClassOf pyro:RiskLevel ; rdfs:label "Düşük (20-39)" .
+pyro:ModerateRisk   a owl:Class ; rdfs:subClassOf pyro:RiskLevel ; rdfs:label "Orta (40-59)" .
+pyro:HighRisk       a owl:Class ; rdfs:subClassOf pyro:RiskLevel ; rdfs:label "Yüksek (60-79)" .
+pyro:ExtremeRisk    a owl:Class ; rdfs:subClassOf pyro:RiskLevel ; rdfs:label "Ekstrem (80-100)" .
+
+pyro:FireAlarm a owl:Class ;
+    rdfs:label "Yangın Alarmı" .
+
+pyro:hasRiskLevel a owl:ObjectProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range pyro:RiskLevel ;
+    rdfs:label "risk seviyesi" .
+
+pyro:riskScore a owl:DatatypeProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Risk Skoru (0-100)" .
+
+# ============================================================
+# BÖLÜM 5: SWRL KURALLARI
+#
+# Not: Bu kurallar Apache Jena Fuseki ile çalışmak için
+# Jena Rule Language formatında da yazılacak.
+# Aşağıdakiler kavramsal SWRL gösterimidir.
+# ============================================================
+
+# -----------------------------------------------------------
+# KURAL 1 — Ekstrem Risk
+# Alev dedektörü tetiklenmiş + duman > 500 PPM + rüzgar > 5 m/s
+# → ExtremeFire → müdahale gerekli
+# -----------------------------------------------------------
+# SensorNode(?n) ∧ hasReading(?n, ?r) ∧ flameDetected(?r, true)
+#   ∧ smokePPM(?r, ?s) ∧ swrlb:greaterThan(?s, 500)
+#   ∧ windSpeedMs(?r, ?w) ∧ swrlb:greaterThan(?w, 5)
+#   ∧ locatedInZone(?n, ?z)
+# → hasRiskLevel(?z, ExtremeRisk)
+
+# -----------------------------------------------------------
+# KURAL 2 — Yüksek Risk (Bağlamsal)
+# İbreli orman + kuraklık + sıcaklık > 38°C + nem < 20%
+#   + rüzgar > 8 m/s + duman > 100 PPM → HighRisk
+# -----------------------------------------------------------
+# SensorNode(?n) ∧ locatedInZone(?n, ?z)
+#   ∧ hasForestType(?z, ConiferForest)
+#   ∧ hasDroughtIndex(?z, ExtremeDrought)
+#   ∧ hasReading(?n, ?r)
+#   ∧ temperature(?r, ?t) ∧ swrlb:greaterThan(?t, 38)
+#   ∧ humidity(?r, ?h) ∧ swrlb:lessThan(?h, 20)
+#   ∧ windSpeedMs(?r, ?w) ∧ swrlb:greaterThan(?w, 8)
+#   ∧ smokePPM(?r, ?s) ∧ swrlb:greaterThan(?s, 100)
+# → hasRiskLevel(?z, HighRisk)
+
+# -----------------------------------------------------------
+# KURAL 3 — Orta Risk
+# Sıcaklık > 35°C + nem < 25% + 14 gün yağışsız → ModerateRisk
+# -----------------------------------------------------------
+# SensorNode(?n) ∧ locatedInZone(?n, ?z)
+#   ∧ hasReading(?n, ?r)
+#   ∧ temperature(?r, ?t) ∧ swrlb:greaterThan(?t, 35)
+#   ∧ humidity(?r, ?h) ∧ swrlb:lessThan(?h, 25)
+#   ∧ hasDroughtIndex(?z, ModerateDrought)
+# → hasRiskLevel(?z, ModerateRisk)
+
+# -----------------------------------------------------------
+# KURAL 4 — Vadi Etkisi Çarpanı
+# ModerateRisk + Vadi topoğrafyası + rüzgar > 6 m/s → HighRisk
+# -----------------------------------------------------------
+# Zone(?z) ∧ hasRiskLevel(?z, ModerateRisk)
+#   ∧ hasTopology(?z, ValleyTopology)
+#   ∧ SensorNode(?n) ∧ locatedInZone(?n, ?z)
+#   ∧ hasReading(?n, ?r)
+#   ∧ windSpeedMs(?r, ?w) ∧ swrlb:greaterThan(?w, 6)
+# → hasRiskLevel(?z, HighRisk)
+
+# -----------------------------------------------------------
+# KURAL 5 — Sensör Anomali Tespiti
+# 3 dakikada 15°C'den fazla sıcaklık artışı → SensorFault şüphesi
+# (Bu kural backend'de zaman serisi analizi ile desteklenir)
+# -----------------------------------------------------------
+# SensorNode(?n) ∧ hasReading(?n, ?r1) ∧ hasReading(?n, ?r2)
+#   ∧ temperature(?r1, ?t1) ∧ temperature(?r2, ?t2)
+#   ∧ swrlb:subtract(?diff, ?t2, ?t1) ∧ swrlb:greaterThan(?diff, 15)
+# → hasRiskLevel(pyro:SensorFault, ?n)

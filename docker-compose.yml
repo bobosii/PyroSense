@@ -1,0 +1,139 @@
+# ============================================================
+#  PyroSense — Docker Compose
+#  Tüm altyapı servisleri tek komutla: docker compose up -d
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  # 1. MQTT Broker — Mosquitto
+  # Simülatör ve backend arasındaki mesaj köprüsü
+  # ----------------------------------------------------------
+  mosquitto:
+    image: eclipse-mosquitto:2
+    container_name: pyrosense-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT
+      - "9001:9001"   # WebSocket (frontend direkt subscribe için)
+    volumes:
+      - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    networks:
+      - pyrosense-net
+
+  # ----------------------------------------------------------
+  # 2. Ontoloji Motoru — Apache Jena Fuseki
+  # En yaygın kullanılan ve kararlı Fuseki imajı (stain/jena-fuseki)
+  # Docker Hub'da public: https://hub.docker.com/r/stain/jena-fuseki
+  # UI: http://localhost:3030  |  user: admin / pyrosense123
+  # ----------------------------------------------------------
+  fuseki:
+    image: stain/jena-fuseki:latest
+    platform: linux/amd64   # Apple Silicon (arm64) için Rosetta emülasyonu
+    container_name: pyrosense-fuseki
+    restart: unless-stopped
+    ports:
+      - "3030:3030"
+    environment:
+      - ADMIN_PASSWORD=pyrosense123
+      - JVM_ARGS=-Xmx2g -Xms512m
+    volumes:
+      - fuseki_data:/fuseki
+      - ./ontology:/staging/ontology
+    networks:
+      - pyrosense-net
+
+  # ----------------------------------------------------------
+  # 3. Ana Veritabanı — PostgreSQL + TimescaleDB
+  # Zaman serisi sensör verileri
+  # ----------------------------------------------------------
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: pyrosense-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pyrosense
+      POSTGRES_USER: pyrosense
+      POSTGRES_PASSWORD: pyrosense123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./config/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - pyrosense-net
+
+  # ----------------------------------------------------------
+  # 4. Doküman Veritabanı — MongoDB
+  # Alarm logları (şemasız, TTL index)
+  # ----------------------------------------------------------
+  mongodb:
+    image: mongo:7
+    container_name: pyrosense-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: pyrosense
+      MONGO_INITDB_ROOT_PASSWORD: pyrosense123
+      MONGO_INITDB_DATABASE: pyrosense
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - pyrosense-net
+
+  # ----------------------------------------------------------
+  # 5. Yönetim Arayüzü — Mongo Express (geliştirme kolaylığı)
+  # http://localhost:8081
+  # ----------------------------------------------------------
+  mongo-express:
+    image: mongo-express:1
+    container_name: pyrosense-mongo-ui
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: pyrosense
+      ME_CONFIG_MONGODB_ADMINPASSWORD: pyrosense123
+      ME_CONFIG_MONGODB_URL: mongodb://pyrosense:pyrosense123@mongodb:27017/
+      ME_CONFIG_BASICAUTH: "false"
+    depends_on:
+      - mongodb
+    networks:
+      - pyrosense-net
+
+  # ----------------------------------------------------------
+  # 6. PostgreSQL Yönetim Arayüzü — Adminer
+  # http://localhost:8082
+  # Giriş: System=PostgreSQL, Server=postgres,
+  #         User=pyrosense, Password=pyrosense123, DB=pyrosense
+  # ----------------------------------------------------------
+  adminer:
+    image: adminer:latest
+    container_name: pyrosense-adminer
+    restart: unless-stopped
+    ports:
+      - "8082:8080"
+    depends_on:
+      - postgres
+    networks:
+      - pyrosense-net
+
+# ----------------------------------------------------------
+# Kalıcı Veri Hacimleri
+# ----------------------------------------------------------
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  fuseki_data:
+  postgres_data:
+  mongo_data:
+
+# ----------------------------------------------------------
+# İç Ağ — Servisler birbirini isim ile bulur
+# ----------------------------------------------------------
+networks:
+  pyrosense-net:
+    driver: bridge
