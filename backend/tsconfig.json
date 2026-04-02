@@ -8,6 +8,11 @@
         "esModuleInterop": true,
         "resolveJsonModule": true
     },
+    "workspaces": [
+        "src/*",
+        "src/types/*",
+        "src/services/*"
+    ],
     "include": [
         "src/**/*"
     ]
