@@ -29,7 +29,7 @@ use std::{
     time::Duration,
 };
 use tokio::time::interval;
-use tracing::{info};
+use tracing::info;
 
 // -----------------------------------------------------------
 // Paylaşılan Durum — senaryo durumları thread-safe

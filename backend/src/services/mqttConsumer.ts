@@ -1,5 +1,6 @@
 import mqtt from "mqtt";
 import { SensorMessage } from "../types/sensor";
+import { saveSensorReading } from "./sensorRepository";
 
 const MQTT_URL = process.env.MQTT_URL || "mqtt://localhost:1883";
 
@@ -14,7 +15,7 @@ export function startMqttConsumer() {
         });
     });
 
-    client.on("message", (topic, payload) => {
+    client.on("message", async (topic, payload) => {
         try {
             const message: SensorMessage = JSON.parse(payload.toString());
             console.log(
@@ -22,6 +23,7 @@ export function startMqttConsumer() {
                     `duman: ${message.readings.smoke_ppm} PPM | ` +
                     `senaryo: ${message.scenario}`,
             );
+            await saveSensorReading(message);
         } catch (err) {
             console.log("Parse error: ", err);
         }

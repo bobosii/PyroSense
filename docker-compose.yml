@@ -4,7 +4,6 @@
 # ============================================================
 
 services:
-
   # ----------------------------------------------------------
   # 1. MQTT Broker — Mosquitto
   # Simülatör ve backend arasındaki mesaj köprüsü
@@ -14,8 +13,8 @@ services:
     container_name: pyrosense-mqtt
     restart: unless-stopped
     ports:
-      - "1883:1883"   # MQTT
-      - "9001:9001"   # WebSocket (frontend direkt subscribe için)
+      - "1883:1883" # MQTT
+      - "9001:9001" # WebSocket (frontend direkt subscribe için)
     volumes:
       - ./config/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
       - mosquitto_data:/mosquitto/data
@@ -31,7 +30,7 @@ services:
   # ----------------------------------------------------------
   fuseki:
     image: stain/jena-fuseki:latest
-    platform: linux/amd64   # Apple Silicon (arm64) için Rosetta emülasyonu
+    platform: linux/amd64 # Apple Silicon (arm64) için Rosetta emülasyonu
     container_name: pyrosense-fuseki
     restart: unless-stopped
     ports:
@@ -54,7 +53,7 @@ services:
     container_name: pyrosense-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       POSTGRES_DB: pyrosense
       POSTGRES_USER: pyrosense
