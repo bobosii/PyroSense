@@ -1,6 +1,8 @@
 import mqtt from "mqtt";
 import { SensorMessage } from "../types/sensor";
 import { saveSensorReading } from "./sensorRepository";
+import { toRdfTurtle } from "./rdfConverter";
+import { uploadTurtle } from "./fusekiClient";
 
 const MQTT_URL = process.env.MQTT_URL || "mqtt://localhost:1883";
 
@@ -24,6 +26,8 @@ export function startMqttConsumer() {
                     `senaryo: ${message.scenario}`,
             );
             await saveSensorReading(message);
+            const turtle = toRdfTurtle(message);
+            await uploadTurtle(turtle);
         } catch (err) {
             console.log("Parse error: ", err);
         }
