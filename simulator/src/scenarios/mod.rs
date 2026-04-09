@@ -12,10 +12,10 @@ use crate::models::sensor::{ForestType, NodeConfig, Readings, Topology};
 /// Aktif senaryo türü
 #[derive(Debug, Clone, PartialEq)]
 pub enum Scenario {
-    Normal,       // Günlük döngüyle uyumlu normal koşullar
-    PreFire,      // Duman artışı, yüksek sıcaklık, düşük nem
-    ActiveFire,   // Alev tespiti, maksimum duman ve sıcaklık
-    SensorFault,  // Anormal okuma atlama, NaN benzeri değerler
+    Normal,      // Günlük döngüyle uyumlu normal koşullar
+    PreFire,     // Duman artışı, yüksek sıcaklık, düşük nem
+    ActiveFire,  // Alev tespiti, maksimum duman ve sıcaklık
+    SensorFault, // Anormal okuma atlama, NaN benzeri değerler
 }
 
 impl Scenario {
@@ -51,10 +51,18 @@ impl SensorPhysics {
     fn normal(node: &NodeConfig, hour: u32, rng: &mut impl Rng) -> Readings {
         // Baz sıcaklık — orman tipine ve saate göre değişir
         let base_temp = match node.forest_type {
-            ForestType::Conifer => 22.0,
-            ForestType::Deciduous => 18.0,
-            ForestType::Mixed => 20.0,
-            ForestType::Shrub => 25.0,
+            ForestType::RedPine => 26.0, // Kızılçam — Akdeniz kıyısı, sıcak ve kuru
+            ForestType::BlackPine => 20.0, // Karaçam — iç Anadolu, 500-2000m
+            ForestType::ScotsPine => 16.0, // Sarıçam — Doğu Anadolu, kıta iklimi
+            ForestType::TaurusCedar => 18.0, // Toros sediri — Toros dağları, 1000-2000m
+            ForestType::SilverFir => 14.0, // Göknar — Karadeniz iç kesimleri, serin
+            ForestType::OrientalSpruce => 12.0, // Doğu ladini — Doğu Karadeniz, en serin
+            ForestType::Oak => 21.0,     // Meşe — Türkiye geneli, orta yükseklik
+            ForestType::OrientalBeech => 15.0, // Kayın — Karadeniz, nemli ve ılıman
+            ForestType::Alder => 15.0,   // Kızılağaç — riparian, su kenarı
+            ForestType::Shrubland => 28.0, // Maki — Akdeniz kıyısı, en sıcak
+            ForestType::Juniper => 22.0, // Ardıç — kuru iç Anadolu
+            ForestType::Mixed => 20.0,   // Karma — ortalama değer
         };
 
         // Günlük döngü: -5°C gece, +8°C öğle
@@ -160,14 +168,30 @@ impl SensorPhysics {
     fn sensor_fault(rng: &mut impl Rng) -> Readings {
         // Bazı sensörler makul, bazıları saçma değer üretiyor
         Readings {
-            temperature: if rng.gen_bool(0.5) { 999.9 } else { rng.gen_range(-10.0..100.0) },
-            humidity: if rng.gen_bool(0.5) { -1.0 } else { rng.gen_range(0.0..100.0) },
-            smoke_ppm: if rng.gen_bool(0.3) { 9999.0 } else { rng.gen_range(0.0..50.0) },
+            temperature: if rng.gen_bool(0.5) {
+                999.9
+            } else {
+                rng.gen_range(-10.0..100.0)
+            },
+            humidity: if rng.gen_bool(0.5) {
+                -1.0
+            } else {
+                rng.gen_range(0.0..100.0)
+            },
+            smoke_ppm: if rng.gen_bool(0.3) {
+                9999.0
+            } else {
+                rng.gen_range(0.0..50.0)
+            },
             uv_index: rng.gen_range(0.0..15.0),
-            wind_speed_ms: if rng.gen_bool(0.4) { -5.0 } else { rng.gen_range(0.0..30.0) },
+            wind_speed_ms: if rng.gen_bool(0.4) {
+                -5.0
+            } else {
+                rng.gen_range(0.0..30.0)
+            },
             wind_dir_deg: rng.gen_range(0..360) as u16,
             flame_detected: rng.gen_bool(0.1), // Rastgele yanıp sönüyor
-            co2_ppm: None, // CO2 sensörü tamamen yanıt vermiyor
+            co2_ppm: None,                     // CO2 sensörü tamamen yanıt vermiyor
         }
     }
 }
@@ -195,4 +219,3 @@ fn weibull_wind(rng: &mut impl Rng, scale: f64, shape: f64) -> f64 {
 fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
-

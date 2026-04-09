@@ -21,7 +21,7 @@ export function startMqttConsumer() {
         try {
             const message: SensorMessage = JSON.parse(payload.toString());
             console.log(
-                `[${message.zone_id}] sıcaklık: ${message.readings.temperature}°C | ` +
+                `[${message.zone_id}] || orman tipi: ${message.forest_type}, sıcaklık: ${message.readings.temperature}°C | ` +
                     `duman: ${message.readings.smoke_ppm} PPM | ` +
                     `senaryo: ${message.scenario}`,
             );

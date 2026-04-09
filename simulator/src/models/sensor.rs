@@ -14,26 +14,34 @@ pub struct SensorReading {
     pub readings: Readings,
     pub battery_pct: u8,
     pub scenario: String,
+    pub forest_type: String,
     pub fw_version: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Readings {
-    pub temperature: f64,       // °C
-    pub humidity: f64,          // %
-    pub smoke_ppm: f64,         // PPM
-    pub uv_index: f64,          // W/m²
-    pub wind_speed_ms: f64,     // m/s
-    pub wind_dir_deg: u16,      // 0-360 derece
+    pub temperature: f64,   // °C
+    pub humidity: f64,      // %
+    pub smoke_ppm: f64,     // PPM
+    pub uv_index: f64,      // W/m²
+    pub wind_speed_ms: f64, // m/s
+    pub wind_dir_deg: u16,  // 0-360 derece
     pub flame_detected: bool,
-    pub co2_ppm: Option<f64>,   // Opsiyonel
+    pub co2_ppm: Option<f64>, // Opsiyonel
 }
 
 impl SensorReading {
-    pub fn new(device_id: &str, zone_id: &str, readings: Readings, scenario: &str) -> Self {
+    pub fn new(
+        device_id: &str,
+        zone_id: &str,
+        readings: Readings,
+        forest_type: &str,
+        scenario: &str,
+    ) -> Self {
         Self {
             device_id: device_id.to_string(),
             zone_id: zone_id.to_string(),
+            forest_type: forest_type.to_string(),
             timestamp: Utc::now(),
             readings,
             battery_pct: 100,
@@ -65,16 +73,53 @@ pub struct NodeConfig {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ForestType {
-    Conifer,    // İbreli (çam) — en yüksek yangın riski
-    Deciduous,  // Yapraklı (kayın) — daha düşük risk
-    Mixed,      // Karma
-    Shrub,      // Maki/çalılık
+    /// Kizilcam
+    RedPine,
+    /// Karacam
+    BlackPine,
+    /// Saricam
+    ScotsPine,
+    ///Toros Sediri (Sedir)
+    TaurusCedar,
+    /// Goknar
+    SilverFir,
+    /// Dogu Ladini
+    OrientalSpruce,
+    /// Mese
+    Oak,
+    /// Kayin
+    OrientalBeech,
+    /// KizilAgac
+    Alder,
+    /// Maki
+    Shrubland,
+    /// Ardic (Juniperus türleri)
+    Juniper,
+    /// Karma
+    Mixed,
 }
-
+impl ForestType {
+    pub fn as_str(&self) -> &str {
+        match self {
+            ForestType::RedPine => "RedPine",
+            ForestType::BlackPine => "BlackPine",
+            ForestType::ScotsPine => "ScotsPine",
+            ForestType::TaurusCedar => "TaurusCedar",
+            ForestType::SilverFir => "SilverFir",
+            ForestType::OrientalSpruce => "OrientalSpruce",
+            ForestType::Oak => "Oak",
+            ForestType::OrientalBeech => "OrientalBeech",
+            ForestType::Alder => "Alder",
+            ForestType::Shrubland => "Shrubland",
+            ForestType::Juniper => "Juniper",
+            ForestType::Mixed => "Mixed",
+        }
+    }
+}
 #[derive(Debug, Clone, PartialEq)]
 pub enum Topology {
-    Valley,     // Vadi — rüzgar kanalı etkisi
-    Slope,      // Yamaç
-    Ridge,      // Sırt
-    Plain,      // Düzlük
+    Valley, // Vadi — rüzgar kanalı etkisi
+    Slope,  // Yamaç
+    Ridge,  // Sırt
+    Plain,  // Düzlük
 }

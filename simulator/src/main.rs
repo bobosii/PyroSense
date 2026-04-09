@@ -114,7 +114,7 @@ async fn main() {
         NodeConfig {
             device_id: "node_a_01".to_string(),
             zone_id: "zone_a".to_string(),
-            forest_type: ForestType::Conifer,
+            forest_type: ForestType::RedPine,
             topology: Topology::Slope,
             base_lat: 36.8969,
             base_lon: 30.7133,
@@ -122,7 +122,7 @@ async fn main() {
         NodeConfig {
             device_id: "node_b_01".to_string(),
             zone_id: "zone_b".to_string(),
-            forest_type: ForestType::Deciduous,
+            forest_type: ForestType::Oak,
             topology: Topology::Valley,
             base_lat: 36.8800,
             base_lon: 30.7000,
@@ -176,8 +176,13 @@ async fn main() {
             let scenario = scenario_map.get(&node.zone_id).unwrap_or(&Scenario::Normal);
 
             let readings = SensorPhysics::generate(node, scenario);
-            let reading =
-                SensorReading::new(&node.device_id, &node.zone_id, readings, scenario.name());
+            let reading = SensorReading::new(
+                &node.device_id,
+                &node.zone_id,
+                readings,
+                node.forest_type.as_str(),
+                scenario.name(),
+            );
 
             let topic = reading.mqtt_topic();
             let payload = reading.to_json();
