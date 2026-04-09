@@ -181,6 +181,7 @@ async fn main() {
                 &node.zone_id,
                 readings,
                 node.forest_type.as_str(),
+                node.topology.as_str(),
                 scenario.name(),
             );
 

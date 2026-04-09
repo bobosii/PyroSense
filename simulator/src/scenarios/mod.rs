@@ -3,7 +3,7 @@
 //  Gauss gürültüsü + Weibull rüzgar + günlük döngü
 // ============================================================
 
-use chrono::{Timelike, Utc};
+use chrono::{Datelike, Timelike, Utc};
 use rand::Rng;
 use rand_distr::{Distribution, Normal, Weibull};
 
@@ -65,12 +65,31 @@ impl SensorPhysics {
             ForestType::Mixed => 20.0,   // Karma — ortalama değer
         };
 
+        let month = Utc::now().month();
+        let seasonal_offset: f64 = match month {
+            12 | 1 | 2 => -10.0, // Kış — baz sıcaklığın çok altında
+            3 | 4 => -4.0,       // İlkbahar başı
+            5 => 1.0,            // İlkbahar sonu
+            6 => 5.0,            // Yaz başı
+            7 | 8 => 8.0,        // Yaz — en sıcak, yangın sezonu
+            9 => 4.0,            // Sonbahar başı
+            10 => -2.0,          // Sonbahar
+            11 => -7.0,          // Sonbahar sonu
+            _ => 0.0,
+        };
+
         // Günlük döngü: -5°C gece, +8°C öğle
         let diurnal_offset = 8.0 * ((hour as f64 - 6.0) * std::f64::consts::PI / 12.0).sin();
-        let temp = base_temp + diurnal_offset + gaussian(rng, 0.0, 0.5);
+        let temp = base_temp + seasonal_offset + diurnal_offset + gaussian(rng, 0.0, 0.5);
 
         // Nem: sıcaklıkla ters orantılı
-        let humidity = (75.0 - diurnal_offset * 2.0 + gaussian(rng, 0.0, 2.0)).clamp(20.0, 95.0);
+        let seasonal_humidity: f64 = match month {
+            12 | 1 | 2 => 20.0, // Kışın nem yüksek
+            7 | 8 => -15.0,     // Yazın nem düşük — yangın riski artar
+            _ => 0.0,
+        };
+        let humidity = (75.0 + seasonal_humidity - diurnal_offset * 2.0 + gaussian(rng, 0.0, 2.0))
+            .clamp(20.0, 95.0);
 
         // Duman: normal koşullarda çok düşük
         let smoke = (5.0 + gaussian(rng, 0.0, 1.5)).clamp(0.0, 15.0);

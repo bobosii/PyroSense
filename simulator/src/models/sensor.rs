@@ -15,6 +15,7 @@ pub struct SensorReading {
     pub battery_pct: u8,
     pub scenario: String,
     pub forest_type: String,
+    pub topology: String,
     pub fw_version: String,
 }
 
@@ -36,12 +37,14 @@ impl SensorReading {
         zone_id: &str,
         readings: Readings,
         forest_type: &str,
+        topology: &str,
         scenario: &str,
     ) -> Self {
         Self {
             device_id: device_id.to_string(),
             zone_id: zone_id.to_string(),
             forest_type: forest_type.to_string(),
+            topology: topology.to_string(),
             timestamp: Utc::now(),
             readings,
             battery_pct: 100,
@@ -122,4 +125,15 @@ pub enum Topology {
     Slope,  // Yamaç
     Ridge,  // Sırt
     Plain,  // Düzlük
+}
+
+impl Topology {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Topology::Valley => "Valley",
+            Topology::Slope => "Slope",
+            Topology::Ridge => "Ridge",
+            Topology::Plain => "Plain",
+        }
+    }
 }

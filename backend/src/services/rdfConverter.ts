@@ -16,7 +16,8 @@ export function toRdfTurtle(msg: SensorMessage): string {
 <${nodeId}> a pyro:SensorNode ;
     pyro:deviceId    "${msg.device_id}" ;
     pyro:zoneId    "${msg.zone_id}" ;
-    pyro:forestType "${msg.forest_type}" .
+    pyro:forestType "${msg.forest_type}" ;
+    pyro:topology "${msg.topology}" .
 
 <${readId}> a pyro:SensorReading ;
     ssn:isObservedBy   <${nodeId}> ;

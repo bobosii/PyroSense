@@ -13,6 +13,7 @@ export interface SensorMessage {
     device_id: string;
     zone_id: string;
     forest_type: string;
+    topology: string;
     timestamp: string;
     readings: SensorReadings;
     battery_pct: number;
