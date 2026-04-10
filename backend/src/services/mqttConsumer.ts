@@ -3,8 +3,7 @@ import { SensorMessage } from "../types/sensor";
 import { saveSensorReading } from "./sensorRepository";
 import { toRdfTurtle } from "./rdfConverter";
 import { uploadTurtle } from "./fusekiClient";
-
-const MQTT_URL = process.env.MQTT_URL || "mqtt://localhost:1883";
+import { MQTT_URL } from "../constants";
 
 export function startMqttConsumer() {
     const client = mqtt.connect(MQTT_URL);

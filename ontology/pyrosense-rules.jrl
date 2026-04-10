@@ -1,0 +1,803 @@
+# ============================================================
+#  PyroSense Jena Kural Dosyası
+#  Orman tipine göre diferansiye edilmiş yangın risk kuralları
+#  + Topoloji bazlı risk yükseltme kuralları
+#
+#  Toplam: 60 orman tipi kuralı + 3 topoloji kuralı = 63 kural
+#
+#  Orman Tipleri (12):
+#    RedPine, BlackPine, ScotsPine, TaurusCedar, SilverFir,
+#    OrientalSpruce, Oak, OrientalBeech, Alder, Shrubland,
+#    Juniper, Mixed
+#
+#  Kural Kategorileri (5):
+#    1. HighDroughtRisk   — yüksek sıcaklık + düşük nem
+#    2. SmokeAlarm        — duman eşiği aşıldı
+#    3. SpreadRisk        — yüksek rüzgar + sıcaklık
+#    4. EarlySignal       — CO2 + duman kombinasyonu
+#    5. FlameDetected     — alev dedektörü tetiklendi
+#
+#  Topoloji Kuralları (3):
+#    Valley_WindAmplification
+#    Ridge_WindExposure
+#    Slope_FireSpread
+# ============================================================
+
+# ------------------------------------------------------------
+# 1. RED PINE — Kızılçam (Pinus brutia)
+# En yüksek yangın riski — Akdeniz kıyısı, reçineli
+# Eşikler: en düşük (en hassas)
+# ------------------------------------------------------------
+
+[RedPine_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 28)
+  lessThan(?hum, 35)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[RedPine_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 60)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[RedPine_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 6)
+  greaterThan(?temp, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[RedPine_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 450)
+  greaterThan(?smoke, 40)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[RedPine_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 2. BLACK PINE — Karaçam (Pinus nigra)
+# Yüksek risk — iç Anadolu, 500-2000m
+# ------------------------------------------------------------
+
+[BlackPine_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 30)
+  lessThan(?hum, 30)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[BlackPine_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 75)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[BlackPine_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 27)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[BlackPine_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 470)
+  greaterThan(?smoke, 50)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[BlackPine_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 3. SCOTS PINE — Sarıçam (Pinus sylvestris)
+# Orta-yüksek risk — Doğu Anadolu, kıta iklimi, 1000-2200m
+# ------------------------------------------------------------
+
+[ScotsPine_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 26)
+  lessThan(?hum, 30)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[ScotsPine_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 70)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[ScotsPine_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 23)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[ScotsPine_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 460)
+  greaterThan(?smoke, 45)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[ScotsPine_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 4. TAURUS CEDAR — Toros Sediri (Cedrus libani)
+# Orta-yüksek risk — Toros dağları, 1000-2000m
+# ------------------------------------------------------------
+
+[TaurusCedar_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 30)
+  lessThan(?hum, 28)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[TaurusCedar_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 80)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[TaurusCedar_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 26)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[TaurusCedar_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 480)
+  greaterThan(?smoke, 55)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[TaurusCedar_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 5. SILVER FIR — Göknar (Abies türleri)
+# Orta risk — Karadeniz iç kesimleri, nemli, 1200-2000m
+# ------------------------------------------------------------
+
+[SilverFir_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 28)
+  lessThan(?hum, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[SilverFir_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 100)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[SilverFir_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 9)
+  greaterThan(?temp, 24)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[SilverFir_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 500)
+  greaterThan(?smoke, 65)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[SilverFir_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 6. ORIENTAL SPRUCE — Doğu Ladini (Picea orientalis)
+# Düşük-orta risk — Doğu Karadeniz, en serin ve nemli
+# ------------------------------------------------------------
+
+[OrientalSpruce_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 26)
+  lessThan(?hum, 22)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[OrientalSpruce_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 110)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[OrientalSpruce_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 10)
+  greaterThan(?temp, 22)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[OrientalSpruce_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 520)
+  greaterThan(?smoke, 70)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[OrientalSpruce_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 7. OAK — Meşe (Quercus türleri)
+# Orta risk — Türkiye geneli yaygın, 200-1500m
+# ------------------------------------------------------------
+
+[Oak_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 34)
+  lessThan(?hum, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[Oak_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 110)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[Oak_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 9)
+  greaterThan(?temp, 30)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[Oak_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 510)
+  greaterThan(?smoke, 70)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[Oak_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 8. ORIENTAL BEECH — Kayın (Fagus orientalis)
+# Düşük-orta risk — Karadeniz, nemli ve ılıman, 500-1800m
+# ------------------------------------------------------------
+
+[OrientalBeech_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 35)
+  lessThan(?hum, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[OrientalBeech_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 120)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[OrientalBeech_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 10)
+  greaterThan(?temp, 32)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[OrientalBeech_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 550)
+  greaterThan(?smoke, 80)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[OrientalBeech_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 9. ALDER — Kızılağaç (Alnus türleri)
+# Düşük risk — riparian (dere/ırmak kenarı), su etkisi
+# ------------------------------------------------------------
+
+[Alder_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 36)
+  lessThan(?hum, 20)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[Alder_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 130)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[Alder_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 11)
+  greaterThan(?temp, 33)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[Alder_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 560)
+  greaterThan(?smoke, 85)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[Alder_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 10. SHRUBLAND — Maki (Akdeniz makisi)
+# Çok yüksek risk — Akdeniz kıyısı, çok hızlı yayılım
+# En düşük eşikler (RedPine'dan bile hassas)
+# ------------------------------------------------------------
+
+[Shrubland_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 26)
+  lessThan(?hum, 38)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[Shrubland_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 50)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[Shrubland_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 5)
+  greaterThan(?temp, 24)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[Shrubland_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 430)
+  greaterThan(?smoke, 35)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[Shrubland_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 11. JUNIPER — Ardıç (Juniperus türleri)
+# Orta-yüksek risk — kuru iç Anadolu, yarı-kurak
+# ------------------------------------------------------------
+
+[Juniper_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 32)
+  lessThan(?hum, 28)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[Juniper_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 85)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[Juniper_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 8)
+  greaterThan(?temp, 29)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[Juniper_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 490)
+  greaterThan(?smoke, 60)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[Juniper_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ------------------------------------------------------------
+# 12. MIXED — Karma Orman
+# Orta risk — karma tür bileşimi, ortalama eşikler
+# ------------------------------------------------------------
+
+[Mixed_HighDroughtRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?temp, 31)
+  lessThan(?hum, 30)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
+]
+
+[Mixed_SmokeAlarm:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?smoke, 90)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
+]
+
+[Mixed_SpreadRisk:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 8)
+  greaterThan(?temp, 28)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
+]
+
+[Mixed_EarlySignal:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
+  (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
+  greaterThan(?co2, 500)
+  greaterThan(?smoke, 60)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
+]
+
+[Mixed_FlameDetected:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "FLAME_DETECTED")
+]
+
+
+# ============================================================
+# TOPOGRAFİK ETKİ KURALLARI
+# Orman tipinden bağımsız — topoloji bazlı risk yükseltme
+# Doküman Kural 4: Vadi etkisi çarpanı
+# ============================================================
+
+# Vadi + yüksek rüzgar + sıcaklık → yayılma riski
+# Vadi topoğrafyası rüzgarı kanalize eder
+[Valley_WindAmplification:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#topology> "Valley")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?wind, 6)
+  greaterThan(?temp, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "VALLEY_WIND_AMPLIFICATION")
+]
+
+# Sırt + yüksek rüzgar → erken uyarı kritik
+# Sırt hattında rüzgar açık akar
+[Ridge_WindExposure:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#topology> "Ridge")
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  greaterThan(?wind, 8)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "RIDGE_WIND_EXPOSURE")
+]
+
+# Yamaç + aktif yangın → kritik yayılım
+# Alevler yamacı aşağıdan yukarı çok hızlı tırmanır
+[Slope_FireSpread:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#topology> "Slope")
+  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  greaterThan(?wind, 3)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SLOPE_FIRE_SPREAD_CRITICAL")
+]
