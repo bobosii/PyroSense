@@ -23,11 +23,11 @@ const THRESHHOLDS: Record<
     }
 > = {
     RedPine: {
-        droughtTemp: 28,
-        droughtHum: 35,
-        smokeAlarm: 60,
-        spreadWind: 6,
-        spreadTemp: 25,
+        droughtTemp: 36,
+        droughtHum: 20,
+        smokeAlarm: 100,
+        spreadWind: 9,
+        spreadTemp: 33,
         earlySignalCo2: 450,
         earlySignalSmoke: 40,
     },
@@ -104,11 +104,11 @@ const THRESHHOLDS: Record<
         earlySignalSmoke: 85,
     },
     Shrubland: {
-        droughtTemp: 26,
-        droughtHum: 38,
-        smokeAlarm: 50,
-        spreadWind: 5,
-        spreadTemp: 24,
+        droughtTemp: 34,
+        droughtHum: 22,
+        smokeAlarm: 80,
+        spreadWind: 7,
+        spreadTemp: 30,
         earlySignalCo2: 430,
         earlySignalSmoke: 35,
     },
@@ -140,7 +140,7 @@ export function calculateRisk(reading: SparqlReading): RiskResult {
         flags.push("FLAME_DETECTED");
     }
 
-    if (reading.temperature > t.droughtTemp && reading.humidity > t.droughtHum) {
+    if (reading.temperature > t.droughtTemp && reading.humidity < t.droughtHum) {
         flags.push("HIGH_DROUGHT_RISK");
     }
     if (reading.smokePpm > t.smokeAlarm) {
@@ -169,9 +169,10 @@ export function calculateRisk(reading: SparqlReading): RiskResult {
     }
 
     if (
-        reading.topology === "Slope" &&
-        reading.flameDetected &&
-        reading.windSpeedMs > 3
+        reading.topology == "Slope" &&
+        reading.windSpeedMs > 5 &&
+        reading.humidity < 30 &&
+        reading.temperature > 30
     ) {
         flags.push("SLOPE_FIRE_SPREAD_CRITICAL");
     }
