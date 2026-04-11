@@ -238,3 +238,92 @@ fn weibull_wind(rng: &mut impl Rng, scale: f64, shape: f64) -> f64 {
 fn round2(v: f64) -> f64 {
     (v * 100.0).round() / 100.0
 }
+
+// -----------------------------------------------------------
+// EMA Filtresi, Ema Filtresi Üstel Hareketli ortalama
+// -----------------------------------------------------------
+
+/// Gürültülü sensör okumalarını yumuşatır.
+/// alpha yakın 1.0 → filtre yok (ham veri)
+/// alpha yakın 0.0 → çok yavaş, gecikmeli
+pub struct EmaFilter {
+    alpha: f64,
+    value: Option<f64>,
+}
+
+impl EmaFilter {
+    pub fn new(alpha: f64) -> Self {
+        Self { alpha, value: None }
+    }
+
+    pub fn update(&mut self, sample: f64) -> f64 {
+        match self.value {
+            None => {
+                self.value = Some(sample);
+                sample
+            }
+            Some(prev) => {
+                let smoothed = self.alpha * sample + (1.0 - self.alpha) * prev;
+                self.value = Some(smoothed);
+                round2(smoothed)
+            }
+        }
+    }
+}
+
+// -----------------------------------------------------------
+// Rüzgar Kayan Penceresi — Sustained Wind
+// -----------------------------------------------------------
+
+/// RAWS standardı: 10 örnek × 30 saniye = ~5 dakikalık sürekli rüzgar
+/// Anlık gust'ları filtreler, yangın yayılım modellerine uygun ortalama verir
+pub struct WindWindow {
+    samples: Vec<f64>,
+    capacity: usize,
+}
+impl WindWindow {
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            samples: Vec::new(),
+            capacity: capacity,
+        }
+    }
+
+    pub fn update(&mut self, sample: f64) -> f64 {
+        self.samples.push(sample);
+        if self.samples.len() > self.capacity {
+            self.samples.remove(0);
+        }
+        round2(self.samples.iter().sum::<f64>() / self.samples.len() as f64)
+    }
+}
+
+// -----------------------------------------------------------
+// Düğüm Filtre Durumu — Per-node filter nesneleri
+// -----------------------------------------------------------
+
+/// Her sensör düğümüne ait filtre nesneleri.
+/// main.rs'de HashMap<String, FilterState> olarak tutulur.
+pub struct FilterState {
+    pub temp_ema: EmaFilter,
+    pub humidity_ema: EmaFilter,
+    pub wind_window: WindWindow,
+}
+
+impl FilterState {
+    pub fn new() -> Self {
+        Self {
+            temp_ema: EmaFilter::new(0.3), // α=0.3 sıcaklık ve nem için standart
+            humidity_ema: EmaFilter::new(0.3),
+            wind_window: WindWindow::new(10), // 10 × 30s = 5 dk kayan pencere
+        }
+    }
+
+    /// Ham Readings al, filtrelenmiş Readings döndür
+    pub fn apply(&mut self, mut readings: Readings) -> Readings {
+        readings.temperature = self.temp_ema.update(readings.temperature);
+        readings.humidity = self.humidity_ema.update(readings.humidity);
+        readings.wind_speed_ms = self.wind_window.update(readings.wind_speed_ms);
+        readings
+    }
+}

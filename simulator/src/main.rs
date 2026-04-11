@@ -19,7 +19,7 @@ mod scenarios;
 
 use models::sensor::{ForestType, NodeConfig, SensorReading, Topology};
 use mqtt::publisher::MqttPublisher;
-use scenarios::{Scenario, SensorPhysics};
+use scenarios::{FilterState, Scenario, SensorPhysics};
 
 use axum::{extract::State, routing::post, Json, Router};
 use serde::{Deserialize, Serialize};
@@ -136,6 +136,11 @@ async fn main() {
             base_lon: 30.7300,
         },
     ];
+    // Her düğüm için filtre durumu — EMA ve rüzgar penceresi
+    let mut filter_states: HashMap<String, FilterState> = nodes
+        .iter()
+        .map(|n| (n.device_id.clone(), FilterState::new()))
+        .collect();
 
     // Başlangıç senaryoları: hepsi Normal
     let scenarios: ScenarioMap = Arc::new(RwLock::new(HashMap::new()));
@@ -175,7 +180,12 @@ async fn main() {
         for node in &nodes {
             let scenario = scenario_map.get(&node.zone_id).unwrap_or(&Scenario::Normal);
 
-            let readings = SensorPhysics::generate(node, scenario);
+            let raw_readings = SensorPhysics::generate(node, scenario);
+
+            // EMA + rüzgar penceresi uygula
+            let filters = filter_states.get_mut(&node.device_id).unwrap();
+            let readings = filters.apply(raw_readings);
+
             let reading = SensorReading::new(
                 &node.device_id,
                 &node.zone_id,

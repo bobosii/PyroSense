@@ -35,8 +35,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 28)
-  lessThan(?hum, 35)
+  greaterThan(?temp, 36)
+  lessThan(?hum, 20)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -46,7 +46,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 60)
+  greaterThan(?smoke, 100)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -57,8 +57,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 6)
-  greaterThan(?temp, 25)
+  greaterThan(?wind, 9)
+  greaterThan(?temp, 33)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -585,8 +585,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 26)
-  lessThan(?hum, 38)
+  greaterThan(?temp, 34)
+  lessThan(?hum, 22)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -596,7 +596,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 50)
+  greaterThan(?smoke, 80)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -607,8 +607,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 5)
-  greaterThan(?temp, 24)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -789,15 +789,18 @@
   (?reading <http://pyrosense.io/ontology#riskFlag> "RIDGE_WIND_EXPOSURE")
 ]
 
-# Yamaç + aktif yangın → kritik yayılım
-# Alevler yamacı aşağıdan yukarı çok hızlı tırmanır
+# Yamaç + kuru + rüzgarlı → erken yayılım uyarısı (yangın başlamadan önce)
+# Alevler yamaçta aşağıdan yukarı çok hızlı tırmanır — önceden tespit kritik
 [Slope_FireSpread:
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#topology> "Slope")
-  (?reading <http://pyrosense.io/ontology#flameDetected> "true"^^xsd:boolean)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
-  greaterThan(?wind, 3)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  (?reading <http://pyrosense.io/ontology#humidity> ?hum)
+  greaterThan(?wind, 5)
+  greaterThan(?temp, 30)
+  lessThan(?hum, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SLOPE_FIRE_SPREAD_CRITICAL")
 ]
