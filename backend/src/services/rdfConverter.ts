@@ -5,7 +5,7 @@ const SSN = "http://www.w3.org/ns/ssn/";
 const XSD = "http://www.w3.org/2001/XMLSchema#";
 
 function sanitize(v: number | undefined | null): number {
-    if (v === null || v === undefined || isNaN(v as number) || isFinite(v as number)) {
+    if (v === null || v === undefined || isNaN(v as number) || !isFinite(v as number)) {
         return 0;
     }
     return v;
