@@ -7,6 +7,7 @@ import { MQTT_URL } from "../constants";
 import { queryReading } from "./sparqlService";
 import { calculateRisk } from "./riskCalculator";
 import { evaluateAlarm } from "./alarmManager";
+import { saveAlarm, saveRiskScore } from "./riskRepository";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
@@ -48,6 +49,11 @@ export function startMqttConsumer() {
 
             // Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
+            await saveRiskScore(message.zone_id, risk, readingUri, message.timestamp);
+
+            if (alarm.justOpened) {
+                await saveAlarm(message.zone_id, risk.level, risk.flags);
+            }
 
             // 6. Log
             const flagStr = risk.flags.length > 0 ? risk.flags.join(", ") : "—";
