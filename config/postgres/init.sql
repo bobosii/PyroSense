@@ -55,6 +55,8 @@ CREATE TABLE IF NOT EXISTS alarms (
     zone_id         TEXT            NOT NULL,
     level           TEXT            NOT NULL,
     message         TEXT,
+    status          TEXT            DEFAULT 'OPEN',  -- OPEN | CLOSED
+    closed_at       TIMESTAMPTZ,                     -- kapanma zamanı
     acknowledged    BOOLEAN         DEFAULT FALSE,
     acknowledged_at TIMESTAMPTZ,
     notified_email  BOOLEAN         DEFAULT FALSE,

@@ -66,7 +66,7 @@ services:
 
   # ----------------------------------------------------------
   # 4. Doküman Veritabanı — MongoDB
-  # Alarm logları (şemasız, TTL index)
+  # Alarm event log'ları (audit trail, immutable events)
   # ----------------------------------------------------------
   mongodb:
     image: mongo:7
@@ -84,7 +84,7 @@ services:
       - pyrosense-net
 
   # ----------------------------------------------------------
-  # 5. Yönetim Arayüzü — Mongo Express (geliştirme kolaylığı)
+  # 5. MongoDB Yönetim Arayüzü — Mongo Express
   # http://localhost:8081
   # ----------------------------------------------------------
   mongo-express:
