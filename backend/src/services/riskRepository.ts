@@ -42,3 +42,12 @@ export async function saveAlarm(
     await db.query(sql, [zoneId, level, message]);
     console.log(`[ALARM] kayit: zone=${zoneId} level=${level}`);
 }
+
+export async function closeAlarm(zoneId: string): Promise<void> {
+    const db = getDb();
+    const sql = `UPDATE alarms SET status = 'CLOSED', closed_at = NOW()
+WHERE zone_id = $1 AND status = 'OPEN'
+AND id = (SELECT id FROM alarms WHERE zone_id = $1 AND status = 'OPEN' ORDER BY created_at DESC LIMIT 1)`;
+    await db.query(sql, [zoneId]);
+    console.log(`[ALARM] kapandi: zone=${zoneId}`);
+}

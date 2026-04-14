@@ -7,7 +7,8 @@ import { MQTT_URL } from "../constants";
 import { queryReading } from "./sparqlService";
 import { calculateRisk } from "./riskCalculator";
 import { evaluateAlarm } from "./alarmManager";
-import { saveAlarm, saveRiskScore } from "./riskRepository";
+import { closeAlarm, saveAlarm, saveRiskScore } from "./riskRepository";
+import { logAlarmEvent } from "./alarmLogRepository";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
@@ -26,10 +27,10 @@ export function startMqttConsumer() {
         try {
             const message: SensorMessage = JSON.parse(payload.toString());
 
-            // Postgresql e kayit edelim
+            // 1. Postgresql e kayit edelim
             await saveSensorReading(message);
 
-            // RDF e cevirelim ve fuseki ye yukleyelim.
+            // 2. RDF e cevirelim ve fuseki ye yukleyelim.
             const turtle = toRdfTurtle(message);
             await uploadTurtle(turtle);
 
@@ -44,18 +45,45 @@ export function startMqttConsumer() {
                 return;
             }
 
-            // Risk hesaplamasi yapalim.
+            // 4. Risk hesaplamasi yapalim.
             const risk = calculateRisk(sparqlReading);
 
-            // Alarm karari ver
+            // 5. Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
+
+            // 6. PostgreSQL risk skoru kayit et.
             await saveRiskScore(message.zone_id, risk, readingUri, message.timestamp);
 
+            // 7. Alarm eventleri - Postgresql state + mongodb audit log
             if (alarm.justOpened) {
                 await saveAlarm(message.zone_id, risk.level, risk.flags);
+                await logAlarmEvent({
+                    eventType: "OPENED",
+                    zoneId: message.zone_id,
+                    flags: risk.flags,
+                    level: risk.level,
+                    score: risk.score,
+                    timestamp: new Date(),
+                });
+                console.log(
+                    `ALARM ACILDI zone=${message.zone_id} level=${risk.level} score=${risk.score}`,
+                );
             }
 
-            // 6. Log
+            if (alarm.justClosed) {
+                await closeAlarm(message.zone_id);
+                await logAlarmEvent({
+                    eventType: "CLOSED",
+                    zoneId: message.zone_id,
+                    level: risk.level,
+                    flags: [],
+                    score: risk.score,
+                    timestamp: new Date(),
+                });
+                console.log(`AlARM KAPANDI zone=${message.zone_id}`);
+            }
+
+            // 8. Log
             const flagStr = risk.flags.length > 0 ? risk.flags.join(", ") : "—";
             console.log(
                 `[${message.zone_id}] ${risk.level} (${risk.score}) | ` +
