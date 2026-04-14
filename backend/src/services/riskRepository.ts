@@ -36,11 +36,11 @@ export async function saveAlarm(
     const db = getDb();
     const message = flags.join(", ");
 
-    const sql = `INSERT INTO alarms (zoneId, level, message)
-    VALUES ($1, $2, $3)`;
+    const sql = `INSERT INTO alarms (zone_id, level, message, status)
+                 VALUES ($1, $2, $3, 'OPEN')`;
 
     await db.query(sql, [zoneId, level, message]);
-    console.log(`[ALARM] kayit: zone=${zoneId} level=${level}`);
+    console.log(`[ALARM] acildi: zone=${zoneId} level=${level}`);
 }
 
 export async function closeAlarm(zoneId: string): Promise<void> {

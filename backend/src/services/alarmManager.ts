@@ -42,19 +42,18 @@ export function evaluateAlarm(zoneId: string, score: number): AlarmDesicion {
     let justClosed = false;
 
     if (!state.active) {
-        // Alarm kapali, acilma kosulunu kontrol etmeliyiz.
+        // Alarm kapali — acilma kosulunu kontrol et
         const cooledDown = state.closedAt == null || now - state.closedAt >= COOLDOWN_MS;
-
         if (score >= OPEN_THRESHOLD && cooledDown) {
             state.active = true;
             justOpened = true;
-        } else {
-            // Alarm acik kapanma kosulunu kontrol etmeliyiz.
-            if (score < CLOSE_THRESHOLD) {
-                state.active = false;
-                justClosed = true;
-                state.closedAt = now;
-            }
+        }
+    } else {
+        // Alarm acik — kapanma kosulunu kontrol et
+        if (score < CLOSE_THRESHOLD) {
+            state.active = false;
+            state.closedAt = now;
+            justClosed = true;
         }
     }
     return {

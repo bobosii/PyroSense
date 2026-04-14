@@ -178,17 +178,21 @@ export function calculateRisk(reading: SparqlReading): RiskResult {
     }
 
     const weights: Record<string, number> = {
-        FLAME_DETECTED: 100,
-        SLOPE_FIRE_SPREAD_CRITICAL: 95,
-        SMOKE_ALARM: 75,
-        EARLY_FIRE_SIGNAL: 70,
-        HIGH_SPREAD_RISK: 65,
-        HIGH_DROUGHT_RISK: 55,
-        VALLEY_WIND_AMPLIFICATION: 50,
-        RIDGE_WIND_EXPOSURE: 40,
+        FLAME_DETECTED: 65,
+        SLOPE_FIRE_SPREAD_CRITICAL: 30,
+        SMOKE_ALARM: 35,
+        EARLY_FIRE_SIGNAL: 25,
+        HIGH_SPREAD_RISK: 20,
+        HIGH_DROUGHT_RISK: 20,
+        VALLEY_WIND_AMPLIFICATION: 15,
+        RIDGE_WIND_EXPOSURE: 10,
     };
 
-    let score = 0;
+    // Tüm flag ağırlıklarını topla, 100'de sınırla
+    let score = Math.min(
+        100,
+        flags.reduce((sum, flag) => sum + (weights[flag] ?? 0), 0),
+    );
 
     for (const flag of flags) {
         const w = weights[flag] ?? 0;
