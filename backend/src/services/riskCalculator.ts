@@ -189,24 +189,10 @@ export function calculateRisk(reading: SparqlReading): RiskResult {
     };
 
     // Tüm flag ağırlıklarını topla, 100'de sınırla
-    let score = Math.min(
+    const score = Math.min(
         100,
         flags.reduce((sum, flag) => sum + (weights[flag] ?? 0), 0),
     );
-
-    for (const flag of flags) {
-        const w = weights[flag] ?? 0;
-        if (w > score) score = w;
-    }
-    // Topoloji çarpanı: birden fazla flag varsa skor %15 artar
-    if (
-        flags.length > 1 &&
-        (flags.includes("VALLEY_WIND_AMPLIFICATION") ||
-            flags.includes("SLOPE_FIRE_SPREAD_CRITICAL") ||
-            flags.includes("RIDGE_WIND_EXPOSURE"))
-    ) {
-        score = Math.min(100, Math.round(score * 1.15));
-    }
 
     const level: RiskLevel =
         score >= 80 ? "EXTREME" : score >= 60 ? "HIGH" : score >= 35 ? "MODERATE" : "LOW";

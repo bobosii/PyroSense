@@ -9,6 +9,7 @@ import { calculateRisk } from "./riskCalculator";
 import { evaluateAlarm } from "./alarmManager";
 import { closeAlarm, saveAlarm, saveRiskScore } from "./riskRepository";
 import { logAlarmEvent } from "./alarmLogRepository";
+import { broadcast } from "./wsGateway";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
@@ -54,6 +55,26 @@ export function startMqttConsumer() {
             // 6. PostgreSQL risk skoru kayit et.
             await saveRiskScore(message.zone_id, risk, readingUri, message.timestamp);
 
+            broadcast({
+                type: "RISK_UPDATE",
+                zoneId: message.zone_id,
+                score: risk.score,
+                level: risk.level,
+                flags: risk.flags,
+                forestType: message.forest_type,
+                topology: message.topology,
+                temperature: sparqlReading.temperature,
+                humidity: sparqlReading.humidity,
+                smokePpm: sparqlReading.smokePpm,
+                windSpeedMs: sparqlReading.windSpeedMs,
+                timeStamp: message.timestamp,
+                alarm: {
+                    active: alarm.shouldAlert,
+                    justOpened: alarm.justOpened,
+                    justClosed: alarm.justClosed,
+                },
+            });
+
             // 7. Alarm eventleri - Postgresql state + mongodb audit log
             if (alarm.justOpened) {
                 await saveAlarm(message.zone_id, risk.level, risk.flags);
@@ -93,14 +114,6 @@ export function startMqttConsumer() {
                     `flags: ${flagStr}`,
             );
 
-            if (alarm.justOpened) {
-                console.warn(
-                    `ALARM ACILDI  zone=${message.zone_id} level=${risk.level} score=${risk.score}`,
-                );
-            }
-            if (alarm.justClosed) {
-                console.log(`ALARM KAPANDI zone=${message.zone_id}`);
-            }
         } catch (error) {
             console.log(`Pipeline Error ${error}`);
         }
