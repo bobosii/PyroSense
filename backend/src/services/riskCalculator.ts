@@ -132,9 +132,24 @@ const THRESHHOLDS: Record<
     },
 };
 
-export function calculateRisk(reading: SparqlReading): RiskResult {
+export function calculateRisk(
+    reading: SparqlReading,
+    droughtClass: string = "NormalMoisture",
+): RiskResult {
+    const droughtMultiplier =
+        droughtClass === "ExtremeDrought"
+            ? 0.8
+            : droughtClass === "ModerateDrought"
+              ? 0.9
+              : 1.0;
     const flags: string[] = [];
-    const t = THRESHHOLDS[reading.forestType] ?? THRESHHOLDS["Mixed"];
+    const base = THRESHHOLDS[reading.forestType] ?? THRESHHOLDS["Mixed"];
+    const t = {
+        ...base,
+        droughtTemp: base.droughtTemp * droughtMultiplier,
+        smokeAlarm: base.smokeAlarm * droughtMultiplier,
+        spreadWind: base.spreadWind * droughtMultiplier,
+    };
 
     if (reading.flameDetected) {
         flags.push("FLAME_DETECTED");

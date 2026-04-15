@@ -29,3 +29,6 @@ export const MONGO_URL = getEnvVar("MONGO_URL");
 
 // WebScoket Port
 export const WEBSOCKET_PORT = getEnvVar("WEBSOCKET_PORT");
+
+// Open Meto api url
+export const OPEN_METEO_URL = getEnvVar("OPEN_METEO_URL");

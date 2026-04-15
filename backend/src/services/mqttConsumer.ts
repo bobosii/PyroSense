@@ -10,6 +10,7 @@ import { evaluateAlarm } from "./alarmManager";
 import { closeAlarm, saveAlarm, saveRiskScore } from "./riskRepository";
 import { logAlarmEvent } from "./alarmLogRepository";
 import { broadcast } from "./wsGateway";
+import { getZoneDrought } from "./weatherRepository";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
@@ -47,7 +48,8 @@ export function startMqttConsumer() {
             }
 
             // 4. Risk hesaplamasi yapalim.
-            const risk = calculateRisk(sparqlReading);
+            const droughtClass = await getZoneDrought(message.zone_id);
+            const risk = calculateRisk(sparqlReading, droughtClass);
 
             // 5. Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
@@ -113,7 +115,6 @@ export function startMqttConsumer() {
                     `${message.readings.smoke_ppm}ppm ${message.readings.wind_speed_ms}m/s | ` +
                     `flags: ${flagStr}`,
             );
-
         } catch (error) {
             console.log(`Pipeline Error ${error}`);
         }
