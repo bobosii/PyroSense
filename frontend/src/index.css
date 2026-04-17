@@ -1,0 +1,46 @@
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg-base: #0f172a;
+    --bg-card: #1e293b;
+    --bg-card2: #0f172a;
+    --border: #334155;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+
+    --low: #22c55e;
+    --moderate: #f59e0b;
+    --high: #f97316;
+    --extreme: #ef4444;
+}
+
+body {
+    background: var(--bg-base);
+    color: var(--text);
+    font-family: "Inter", system-ui, sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+}
+
+select {
+    background: var(--bg-base);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 13px;
+}
