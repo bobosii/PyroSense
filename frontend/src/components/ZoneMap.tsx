@@ -30,13 +30,13 @@ function getColor(update?: RiskUpdate): string {
 
 export default function ZoneMap({ zones, updates }: Props) {
     // Haritanin merkezi - 3 zone'un ortasi (Antalya bolgesi)
-    const center: [number, number] = [36.8956, 30.7089];
+    const center: [number, number] = [37.003, 30.503];
 
     return (
         <div className="map-wrapper">
             <MapContainer
                 center={center}
-                zoom={13}
+                zoom={11}
                 style={{ height: "100%", width: "100%" }}
             >
                 {/* OpenStreetMap tile katmani */}

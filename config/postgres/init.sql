@@ -76,12 +76,15 @@ CREATE TABLE IF NOT EXISTS zones (
     drought_index   TEXT            DEFAULT 'NormalMoisture'
 );
 
--- Test bölgeleri
+-- Gerçek Antalya orman bölgeleri
 INSERT INTO zones VALUES
-    ('zone_a', 'Kuzey Çam Ormanı', 'conifer', 36.8969, 30.7133, 'slope', 'NormalMoisture'),
-    ('zone_b', 'Güney Kayın Vadisi', 'deciduous', 36.8800, 30.7000, 'valley', 'NormalMoisture'),
-    ('zone_c', 'Doğu Karma Orman', 'mixed', 36.9100, 30.7300, 'ridge', 'NormalMoisture')
-ON CONFLICT (zone_id) DO NOTHING;
+    ('zone_a', 'Düzlerçamı Kızılçam',    'conifer',   36.970, 30.530, 'slope',  'NormalMoisture'),
+    ('zone_b', 'Güver Vadisi Meşeliği',  'deciduous', 37.010, 30.510, 'valley', 'NormalMoisture'),
+    ('zone_c', 'Güllük Dağı Karma',      'mixed',     37.030, 30.470, 'ridge',  'NormalMoisture')
+ON CONFLICT (zone_id) DO UPDATE SET
+    name      = EXCLUDED.name,
+    latitude  = EXCLUDED.latitude,
+    longitude = EXCLUDED.longitude;
 
 -- ----------------------------------------------------------
 -- Hava Durumu Önbelleği (Open-Meteo)
