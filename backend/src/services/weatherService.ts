@@ -17,9 +17,9 @@ export interface WeatherData {
 }
 
 const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
-    zone_a: { lat: 36.970, lon: 30.530 }, // Düzlerçamı Kızılçam ormanı
-    zone_b: { lat: 37.010, lon: 30.510 }, // Güver Vadisi Meşeliği
-    zone_c: { lat: 37.030, lon: 30.470 }, // Güllük Dağı Karma orman
+    zone_a: { lat: 36.97, lon: 30.53 }, // Düzlerçamı Kızılçam ormanı
+    zone_b: { lat: 37.01, lon: 30.51 }, // Güver Vadisi Meşeliği
+    zone_c: { lat: 37.03, lon: 30.47 }, // Güllük Dağı Karma orman
 };
 
 function calcDroughtClass(precipitation30d: number): WeatherData["droughtClass"] {

@@ -5,7 +5,6 @@ import ZoneMap from "./components/ZoneMap";
 import AlarmList from "./components/AlarmList";
 import SensorChart from "./components/SensorChart";
 import ScenarioControl from "./components/ScenarioControl";
-import { Label } from "recharts";
 
 const WS_URL = "ws://localhost:3002";
 const MAX_HISTORY = 20;
@@ -14,24 +13,24 @@ const ZONES = [
     {
         zoneId: "zone_a",
         label: "Düzlerçamı Kızılçam",
-        lat: 36.970,
-        lon: 30.530,
+        lat: 36.97,
+        lon: 30.53,
         topology: "slope",
         forestType: "RedPine",
     },
     {
         zoneId: "zone_b",
         label: "Güver Vadisi Meşeliği",
-        lat: 37.010,
-        lon: 30.510,
+        lat: 37.01,
+        lon: 30.51,
         topology: "valley",
         forestType: "Oak",
     },
     {
         zoneId: "zone_c",
         label: "Güllük Dağı Karma",
-        lat: 37.030,
-        lon: 30.470,
+        lat: 37.03,
+        lon: 30.47,
         topology: "ridge",
         forestType: "Mixed",
     },
@@ -154,6 +153,7 @@ export default function App() {
                         <button
                             key={z.zoneId}
                             className={`tab ${activeZone === z.zoneId ? "active" : ""}`}
+                            onClick={() => setActiveZone(z.zoneId)}
                         >
                             {z.label}
                         </button>
