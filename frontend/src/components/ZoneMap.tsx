@@ -41,8 +41,8 @@ export default function ZoneMap({ zones, updates }: Props) {
             >
                 {/* OpenStreetMap tile katmani */}
                 <TileLayer
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                    attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a>'
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://carto.com">CARTO</a>'
                 />
                 {zones.map((z) => {
                     const update = updates[z.zoneId];

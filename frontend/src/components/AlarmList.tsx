@@ -1,22 +1,30 @@
 import { AlarmEntry, RiskLevel } from "../types";
 
 const LEVEL_COLORS: Record<RiskLevel, string> = {
-    LOW: "#22c55e",
+    LOW:      "#22c55e",
     MODERATE: "#f59e0b",
-    HIGH: "#f97316",
-    EXTREME: "#ef4444",
+    HIGH:     "#f97316",
+    EXTREME:  "#ef4444",
 };
 
 const ZONE_LABELS: Record<string, string> = {
-    zone_a: "Kuzey Çam",
-    zone_b: "Güney Kayın",
-    zone_c: "Doğu Karma",
+    zone_a: "Düzlerçamı",
+    zone_b: "Güver Vadisi",
+    zone_c: "Güllük Dağı",
+};
+
+const LEVEL_TR: Record<RiskLevel, string> = {
+    LOW:      "Düşük",
+    MODERATE: "Orta",
+    HIGH:     "Yüksek",
+    EXTREME:  "Kritik",
 };
 
 function formatTime(iso: string) {
     return new Date(iso).toLocaleString("tr-TR", {
         hour: "2-digit",
         minute: "2-digit",
+        second: "2-digit",
     });
 }
 
@@ -30,66 +38,75 @@ export default function AlarmList({ alarms }: Props) {
 
     return (
         <div className="alarm-list">
-            <h2 className="alarm-list-title">Alarmlar</h2>
+            {/* Header */}
+            <div className="alarm-list-header">
+                <span className="alarm-list-title">Alarmlar</span>
+            </div>
 
-            {/* Aktif Alarmlar */}
-            <div className="alarm-section">
-                <div className="alarm-section-label">
-                    AKTIF
-                    {active.length > 0 && (
-                        <span className="alarm-count">{active.length}</span>
+            <div className="alarm-body">
+                {/* Active alarms */}
+                <div className="alarm-section">
+                    <div className="alarm-section-label active-label">
+                        <span className="alarm-active-dot pulse-live" />
+                        AKTİF
+                        {active.length > 0 && (
+                            <span className="alarm-count">{active.length}</span>
+                        )}
+                    </div>
+
+                    {active.length === 0 ? (
+                        <div className="alarm-empty">Aktif alarm yok</div>
+                    ) : (
+                        active.map((a) => {
+                            const color = LEVEL_COLORS[a.level];
+                            return (
+                                <div
+                                    key={a.id}
+                                    className="alarm-entry"
+                                    style={{ borderColor: `${color}40` }}
+                                >
+                                    <div className="alarm-entry-top">
+                                        <span className="alarm-entry-id">
+                                            {ZONE_LABELS[a.zoneId] ?? a.zoneId}
+                                        </span>
+                                        <span className="alarm-entry-time-badge">
+                                            {formatTime(a.openedAt)}
+                                        </span>
+                                    </div>
+                                    <span
+                                        className="alarm-entry-desc"
+                                        style={{ color }}
+                                    >
+                                        {LEVEL_TR[a.level]} Risk — Skor {a.score}
+                                    </span>
+                                </div>
+                            );
+                        })
                     )}
                 </div>
-                {active.length === 0 ? (
-                    <div className="alarm-empty">Aktif alarm yok</div>
-                ) : (
-                    active.map((a) => (
-                        <div key={a.id} className="alarm-entry active">
-                            <div className="alarm-entry-top">
-                                <span
-                                    className="alarm-dot"
-                                    style={{ background: LEVEL_COLORS[a.level] }}
-                                />
-                                <span className="alarm-zone">
-                                    {ZONE_LABELS[a.zoneId] ?? a.zoneId}
-                                </span>
-                                <span
-                                    className="alarm-level"
-                                    style={{ color: LEVEL_COLORS[a.level] }}
-                                >
-                                    {a.level}
-                                </span>
-                                <span className="alarm-score">{a.score}</span>
-                            </div>
-                            <div className="alarm-entry-time">
-                                Açıldı: {formatTime(a.openedAt)}
-                            </div>
-                        </div>
-                    ))
-                )}
-            </div>
-            <div className="alarm-section">
-                <div className="alarm-section-label">SON KAPANANLAR</div>
 
-                {closed.length === 0 ? (
-                    <div className="alarm-empty">Henüz kapanan alarm yok</div>
-                ) : (
-                    closed.slice(0, 8).map((a) => (
-                        <div key={a.id} className="alarm-entry closed">
-                            <div className="alarm-entry-top">
-                                <span className="alarm-dot closed-dot" />
-                                <span className="alarm-zone">
+                {/* Closed alarms */}
+                <div className="alarm-section">
+                    <div className="alarm-section-label closed-label">
+                        SON KAPANANLAR
+                    </div>
+
+                    {closed.length === 0 ? (
+                        <div className="alarm-empty">Henüz kapanan alarm yok</div>
+                    ) : (
+                        closed.slice(0, 8).map((a) => (
+                            <div key={a.id} className="alarm-entry closed">
+                                <span className="alarm-entry-id">
                                     {ZONE_LABELS[a.zoneId] ?? a.zoneId}
+                                    {" — "}
+                                    {formatTime(a.openedAt)}
+                                    {a.closedAt && ` › ${formatTime(a.closedAt)}`}
                                 </span>
-                                <span className="alarm-level muted">{a.level}</span>
+                                <span className="resolved-badge">ÇÖZÜLDÜ</span>
                             </div>
-                            <div className="alarm-entry-time">
-                                {formatTime(a.openedAt)}
-                                {a.closedAt && ` -> ${formatTime(a.closedAt)}`}
-                            </div>
-                        </div>
-                    ))
-                )}
+                        ))
+                    )}
+                </div>
             </div>
         </div>
     );

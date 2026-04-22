@@ -19,37 +19,54 @@ export default function SensorChart({ data, zoneId }: Props) {
     if (data.length === 0) {
         return (
             <div className="chart-empty">
-                {zoneId.toUpperCase()} İçin veri bekleniyor..
+                {zoneId} — veri bekleniyor…
             </div>
         );
     }
 
     return (
         <div className="chart-wrapper">
-            <ResponsiveContainer width="%100" height={220}>
-                <LineChart data={data} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis
                         dataKey="time"
-                        tick={{ fill: "#94a3b8", fontSize: 11 }}
+                        tick={{ fill: "#64748b", fontSize: 10, fontFamily: "Space Grotesk" }}
                         interval="preserveStartEnd"
                     />
-                    <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                    <YAxis
+                        tick={{ fill: "#64748b", fontSize: 10, fontFamily: "Space Grotesk" }}
+                        width={40}
+                    />
                     <Tooltip
                         contentStyle={{
-                            background: "#1e293b",
+                            background: "#0f172a",
                             border: "1px solid #334155",
+                            borderRadius: 2,
+                            fontSize: 12,
+                            fontFamily: "Space Grotesk",
+                            color: "#e2e8f0",
+                        }}
+                        labelStyle={{ color: "#94a3b8", marginBottom: 4 }}
+                    />
+                    <Legend
+                        wrapperStyle={{
+                            color: "#64748b",
+                            fontSize: 10,
+                            fontFamily: "Inter",
+                            letterSpacing: "0.04em",
+                            textTransform: "uppercase",
+                            paddingTop: 0,
                         }}
                     />
-                    <Legend wrapperStyle={{ color: "#94a3b8", fontSize: 12 }} />
 
                     <Line
                         type="monotone"
                         dataKey="temperature"
                         name="Sıcaklık (°C)"
-                        stroke="#f97316"
+                        stroke="#ef4444"
                         dot={false}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                     />
                     <Line
                         type="monotone"
@@ -57,23 +74,23 @@ export default function SensorChart({ data, zoneId }: Props) {
                         name="Nem (%)"
                         stroke="#38bdf8"
                         dot={false}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                     />
                     <Line
                         type="monotone"
                         dataKey="smokePpm"
-                        name="Duman (Ppm)"
+                        name="Duman (ppm)"
                         stroke="#a78bfa"
                         dot={false}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                     />
                     <Line
                         type="monotone"
                         dataKey="windSpeedMs"
                         name="Rüzgar (m/s)"
-                        stroke="#34d399"
+                        stroke="#f97316"
                         dot={false}
-                        strokeWidth={2}
+                        strokeWidth={1.5}
                     />
                 </LineChart>
             </ResponsiveContainer>

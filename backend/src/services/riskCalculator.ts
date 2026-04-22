@@ -2,14 +2,21 @@ import type { SparqlReading } from "./sparqlService";
 
 export type RiskLevel = "LOW" | "MODERATE" | "HIGH" | "EXTREME";
 
+export interface ReasoningEntry {
+    rule: string;
+    label: string;
+    condition: string;
+    weight: number;
+}
+
 export interface RiskResult {
-    score: number; // 0-100
+    score: number;
     level: RiskLevel;
-    flags: string[]; // Tetiklenen kural isimleri
+    flags: string[];
+    reasoningLog: ReasoningEntry[];
 }
 
 // Orman tiplerine gore esik degerleri
-
 const THRESHHOLDS: Record<
     string,
     {
@@ -132,6 +139,18 @@ const THRESHHOLDS: Record<
     },
 };
 
+// Tek kaynak: tüm kural ağırlıkları
+const WEIGHTS: Record<string, number> = {
+    FLAME_DETECTED: 65,
+    SMOKE_ALARM: 35,
+    EARLY_FIRE_SIGNAL: 25,
+    HIGH_SPREAD_RISK: 20,
+    HIGH_DROUGHT_RISK: 20,
+    SLOPE_FIRE_SPREAD_CRITICAL: 30,
+    VALLEY_WIND_AMPLIFICATION: 15,
+    RIDGE_WIND_EXPOSURE: 10,
+};
+
 export function calculateRisk(
     reading: SparqlReading,
     droughtClass: string = "NormalMoisture",
@@ -142,7 +161,10 @@ export function calculateRisk(
             : droughtClass === "ModerateDrought"
               ? 0.9
               : 1.0;
+
     const flags: string[] = [];
+    const reasoningLog: ReasoningEntry[] = [];
+
     const base = THRESHHOLDS[reading.forestType] ?? THRESHHOLDS["Mixed"];
     const t = {
         ...base,
@@ -151,66 +173,99 @@ export function calculateRisk(
         spreadWind: base.spreadWind * droughtMultiplier,
     };
 
+    const fire = (rule: string, label: string, condition: string) => {
+        flags.push(rule);
+        reasoningLog.push({ rule, label, condition, weight: WEIGHTS[rule] ?? 0 });
+    };
+
+    // ── Sensör Kuralları
+
     if (reading.flameDetected) {
-        flags.push("FLAME_DETECTED");
+        fire("FLAME_DETECTED", "Alev Tespiti", "Alev sensörü aktif sinyal verdi");
     }
 
     if (reading.temperature > t.droughtTemp && reading.humidity < t.droughtHum) {
-        flags.push("HIGH_DROUGHT_RISK");
+        fire(
+            "HIGH_DROUGHT_RISK",
+            "Yüksek Kuraklık Riski",
+            `Sıcaklık ${reading.temperature.toFixed(1)}°C > eşik ${t.droughtTemp.toFixed(1)}°C` +
+                ` & Nem %${reading.humidity.toFixed(0)} < %${t.droughtHum}`,
+        );
     }
+
     if (reading.smokePpm > t.smokeAlarm) {
-        flags.push("SMOKE_ALARM");
+        fire(
+            "SMOKE_ALARM",
+            "Duman Alarmı",
+            `Duman ${reading.smokePpm.toFixed(0)} ppm > eşik ${t.smokeAlarm.toFixed(0)} ppm`,
+        );
     }
 
     if (reading.windSpeedMs > t.spreadWind && reading.temperature > t.spreadTemp) {
-        flags.push("HIGH_SPREAD_RISK");
+        fire(
+            "HIGH_SPREAD_RISK",
+            "Yüksek Yayılım Riski",
+            `Rüzgar ${reading.windSpeedMs.toFixed(1)} m/s > eşik ${t.spreadWind.toFixed(1)} m/s` +
+                ` & Sıcaklık ${reading.temperature.toFixed(1)}°C > ${t.spreadTemp}°C`,
+        );
     }
 
     if (reading.co2Ppm > t.earlySignalCo2 && reading.smokePpm > t.earlySignalSmoke) {
-        flags.push("EARLY_FIRE_SIGNAL");
+        fire(
+            "EARLY_FIRE_SIGNAL",
+            "Erken Yangın Sinyali",
+            `CO₂ ${reading.co2Ppm} ppm > ${t.earlySignalCo2}` +
+                ` & Duman ${reading.smokePpm.toFixed(0)} ppm > ${t.earlySignalSmoke}`,
+        );
     }
 
-    // --- Topoloji kuralları ---
+    // ── Topoloji Kuralları
+
     if (
         reading.topology === "Valley" &&
         reading.windSpeedMs > 6 &&
         reading.temperature > 25
     ) {
-        flags.push("VALLEY_WIND_AMPLIFICATION");
+        fire(
+            "VALLEY_WIND_AMPLIFICATION",
+            "Vadi Rüzgar Etkisi",
+            `Vadi topolojisi & Rüzgar ${reading.windSpeedMs.toFixed(1)} m/s > 6 m/s` +
+                ` & Sıcaklık ${reading.temperature.toFixed(1)}°C > 25°C`,
+        );
     }
 
     if (reading.topology === "Ridge" && reading.windSpeedMs > 8) {
-        flags.push("RIDGE_WIND_EXPOSURE");
+        fire(
+            "RIDGE_WIND_EXPOSURE",
+            "Sırt Rüzgar Açıklığı",
+            `Sırt topolojisi & Rüzgar ${reading.windSpeedMs.toFixed(1)} m/s > 8 m/s`,
+        );
     }
 
     if (
-        reading.topology == "Slope" &&
+        reading.topology === "Slope" &&
         reading.windSpeedMs > 5 &&
         reading.humidity < 30 &&
         reading.temperature > 30
     ) {
-        flags.push("SLOPE_FIRE_SPREAD_CRITICAL");
+        fire(
+            "SLOPE_FIRE_SPREAD_CRITICAL",
+            "Yamaç Yayılım Kritik",
+            `Yamaç topolojisi & Rüzgar ${reading.windSpeedMs.toFixed(1)} m/s > 5 m/s` +
+                ` & Nem %${reading.humidity.toFixed(0)} < %30` +
+                ` & Sıcaklık ${reading.temperature.toFixed(1)}°C > 30°C`,
+        );
     }
 
-    const weights: Record<string, number> = {
-        FLAME_DETECTED: 65,
-        SLOPE_FIRE_SPREAD_CRITICAL: 30,
-        SMOKE_ALARM: 35,
-        EARLY_FIRE_SIGNAL: 25,
-        HIGH_SPREAD_RISK: 20,
-        HIGH_DROUGHT_RISK: 20,
-        VALLEY_WIND_AMPLIFICATION: 15,
-        RIDGE_WIND_EXPOSURE: 10,
-    };
+    // ── Skor & Seviye
 
-    // Tüm flag ağırlıklarını topla, 100'de sınırla
     const score = Math.min(
         100,
-        flags.reduce((sum, flag) => sum + (weights[flag] ?? 0), 0),
+        flags.reduce((sum, flag) => sum + (WEIGHTS[flag] ?? 0), 0),
     );
 
     const level: RiskLevel =
         score >= 80 ? "EXTREME" : score >= 60 ? "HIGH" : score >= 35 ? "MODERATE" : "LOW";
 
-    return { score, level, flags };
+    return { score, level, flags, reasoningLog };
 }

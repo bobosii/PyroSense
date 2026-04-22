@@ -63,6 +63,7 @@ export function startMqttConsumer() {
                 score: risk.score,
                 level: risk.level,
                 flags: risk.flags,
+                reasoningLog: risk.reasoningLog,
                 forestType: message.forest_type,
                 topology: message.topology,
                 temperature: sparqlReading.temperature,

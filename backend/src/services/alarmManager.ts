@@ -10,7 +10,7 @@
 //    Alarm kapandıktan sonra COOLDOWN_MS geçmeden tekrar açılmaz
 // ============================================================
 
-const OPEN_THRESHOLD = 70; // skor > 75 Alarm ac
+const OPEN_THRESHOLD = 60; // skor > 75 Alarm ac
 const CLOSE_THRESHOLD = 45; // skor < 45 Alarm kapat
 const COOLDOWN_MS = 10 * 60 * 1000; // 10 dakika
 

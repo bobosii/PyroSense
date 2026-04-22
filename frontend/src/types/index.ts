@@ -8,6 +8,13 @@ export type DroughtClass = "NormalMoisture" | "ModerateDrought" | "ExtremeDrough
 
 export type ScenarioName = "normal" | "prefire" | "activefire" | "sensorFault";
 
+export interface ReasoningEntry {
+    rule: string;
+    label: string;
+    condition: string;
+    weight: number;
+}
+
 /** Live risk update pushed via WebSocket */
 export interface RiskUpdate {
     type: "RISK_UPDATE";
@@ -15,6 +22,7 @@ export interface RiskUpdate {
     score: number;
     level: RiskLevel;
     flags: string[];
+    reasoningLog: ReasoningEntry[];
     forestType: string;
     topology: string;
     temperature: number;
