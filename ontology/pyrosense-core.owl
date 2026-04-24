@@ -122,20 +122,46 @@ pyro:SensorNode a owl:Class ;
 pyro:SensorReading a owl:Class ;
     rdfs:label "Sensör Okuması" .
 
-# Sayısal özellikler
+# Sayısal özellikler — SensorReading üzerinde
+# NOT: Özellik adları rdfConverter.ts ve pyrosense-rules.jrl ile birebir hizalıdır.
 pyro:temperature      a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Sıcaklık (°C)" .
 pyro:humidity         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Nem (%)" .
-pyro:smokePPM         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Duman (PPM)" .
+pyro:smokePpm         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ;
+    rdfs:label "Duman Yoğunluğu (simüle ppm)" ;
+    rdfs:comment "Üretimde PM2.5/PM10 µg/m³ (pm25UgM3, pm10UgM3) ile değiştirilmeli. Parçacık sensörleri hacimsel ppm değil kütlesel yoğunluk verir." .
 pyro:uvIndex          a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "UV İndeksi" .
 pyro:windSpeedMs      a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "Rüzgar Hızı (m/s)" .
 pyro:windDirDeg       a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:integer ; rdfs:label "Rüzgar Yönü (derece)" .
-pyro:flameDetected    a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:boolean ; rdfs:label "Alev Tespiti" .
-pyro:co2PPM           a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ; rdfs:label "CO2 (PPM)" .
+pyro:flameDetected    a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:boolean ;
+    rdfs:label "Alev Tespiti" ;
+    rdfs:comment "Doğrulama/teyit kuralı olarak kullanılmalı. Duman genellikle alevden önce görünür; FlameDetected erken uyarı değil kritik yükseltme sinyalidir." .
+pyro:co2Ppm           a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:double ;
+    rdfs:label "CO2 (ppm)" ;
+    rdfs:comment "NDIR sensör doğruluğu ±200 ppm bandındadır. 2026 atmosferik baz ~422 ppm. Yalnızca yüksek kaliteli sensör mevcutsa ve eşik >800 ppm ise anlamlıdır; düşük maliyetli sensörlerde yardımcı değişken olarak kullan." .
+
+# Risk çıktısı — SensorReading üzerinde (Jena rule motoru bu özelliğe yazar)
+pyro:riskFlag         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:string ;
+    rdfs:label "Risk Bayrağı" ;
+    rdfs:comment "Jena kural motorunun tetiklenen kural sonucunu yazdığı özellik. Değerler: HIGH_DROUGHT_RISK, SMOKE_ALARM, HIGH_SPREAD_RISK, EARLY_FIRE_SIGNAL, FLAME_DETECTED, VALLEY_WIND_AMPLIFICATION, RIDGE_WIND_EXPOSURE, SLOPE_FIRE_SPREAD_CRITICAL" .
+
+# SensorNode üzerindeki bağlamsal özellikler
+# NOT: rdfConverter.ts bu değerleri SensorNode üzerine string literal olarak yazar.
+# OWL Zone.hasForestType ve Zone.hasTopology nesne özellikleri ile kavramsal model tutulur;
+# ancak JRL kural motoru için SensorNode üzerindeki string özellikler kullanılır.
+pyro:forestType       a owl:DatatypeProperty ; rdfs:domain pyro:SensorNode ; rdfs:range xsd:string ;
+    rdfs:label "Orman Tipi (string)" ;
+    rdfs:comment "JRL kural eşleştirmesi için string literal. Değerler: RedPine, BlackPine, ScotsPine, TaurusCedar, SilverFir, OrientalSpruce, Oak, OrientalBeech, Alder, Shrubland, Juniper, Mixed" .
+pyro:topology         a owl:DatatypeProperty ; rdfs:domain pyro:SensorNode ; rdfs:range xsd:string ;
+    rdfs:label "Topografya (string)" ;
+    rdfs:comment "JRL kural eşleştirmesi için string literal. Değerler: Slope, Valley, Ridge, Plain" .
 
 # İlişkiler
+# NOT: rdfConverter.ts SensorReading → SensorNode yönünde ssn:isObservedBy kullanır.
+# hasReading kavramsal modelde (Zone/OWL) tutulur; operasyonel veri akışı ssn:isObservedBy üzerinden çalışır.
 pyro:hasReading a owl:ObjectProperty ;
     rdfs:domain pyro:SensorNode ;
-    rdfs:range pyro:SensorReading .
+    rdfs:range pyro:SensorReading ;
+    owl:inverseOf <http://www.w3.org/ns/ssn/isObservedBy> .
 
 pyro:locatedInZone a owl:ObjectProperty ;
     rdfs:domain pyro:SensorNode ;

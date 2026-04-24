@@ -1,9 +1,26 @@
 # ============================================================
-#  PyroSense Jena Kural Dosyası
+#  PyroSense Jena Kural Dosyası  — v2.0
 #  Orman tipine göre diferansiye edilmiş yangın risk kuralları
 #  + Topoloji bazlı risk yükseltme kuralları
 #
 #  Toplam: 60 orman tipi kuralı + 3 topoloji kuralı = 63 kural
+#
+#  DEĞİŞİKLİK NOTLARI (v1 → v2):
+#    - OWL-JRL yapısal hizalaması düzeltildi:
+#        smokePPM → smokePpm, co2PPM → co2Ppm
+#    - CO2 mutlak eşikleri 430-560 → 750-1000 ppm aralığına çekildi
+#        (NDIR sensör doğruluğu ±200 ppm; atmosferik baz ~422 ppm)
+#    - RedPine eşikleri düzeltildi: T>36→T>32, RH<20→RH<30
+#        (Kızılçam Türkiye'nin en yangın duyarlı türü — önceki eşikler
+#         çok geçti, yanlış yönde kalibre edilmişti)
+#    - Shrubland eşikleri düzeltildi: T>34→T>30, smoke>80→smoke>60
+#        (Maki Akdeniz kıyısında RedPine'dan bile agresif ön-alarm gerektirir)
+#    - OrientalSpruce eşikleri düzeltildi: T>26→T>33, smoke>110→smoke>140
+#        (Doğu Karadeniz'in en nemli ormanı — önceki eşikler çok erken
+#         tetikleniyordu, sis/nem ile FP üretiyordu)
+#    - ScotsPine eşikleri hafif düzeltildi: T>26→T>28, smoke>70→smoke>80
+#    - FlameDetected: birincil erken alarm değil, teyit/yükseltme kuralı
+#        olarak yorumlanmalı (duman genellikle alevden önce görünür)
 #
 #  Orman Tipleri (12):
 #    RedPine, BlackPine, ScotsPine, TaurusCedar, SilverFir,
@@ -13,9 +30,9 @@
 #  Kural Kategorileri (5):
 #    1. HighDroughtRisk   — yüksek sıcaklık + düşük nem
 #    2. SmokeAlarm        — duman eşiği aşıldı
-#    3. SpreadRisk        — yüksek rüzgar + sıcaklık
-#    4. EarlySignal       — CO2 + duman kombinasyonu
-#    5. FlameDetected     — alev dedektörü tetiklendi
+#    3. SpreadRisk        — yüksek rüzgar + sıcaklık kombinasyonu
+#    4. EarlySignal       — CO2 + duman kombinasyonu (yüksek kaliteli sensör şart)
+#    5. FlameDetected     — alev dedektörü tetiklendi (teyit/yükseltme)
 #
 #  Topoloji Kuralları (3):
 #    Valley_WindAmplification
@@ -25,8 +42,9 @@
 
 # ------------------------------------------------------------
 # 1. RED PINE — Kızılçam (Pinus brutia)
-# En yüksek yangın riski — Akdeniz kıyısı, reçineli
-# Eşikler: en düşük (en hassas)
+# En yüksek yangın riski — Akdeniz-Ege kıyı kuşağı, reçineli
+# Türkiye'de yangından en fazla etkilenen tür
+# Eşikler: en düşük (en hassas) — T>32, RH<30
 # ------------------------------------------------------------
 
 [RedPine_HighDroughtRisk:
@@ -35,8 +53,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 36)
-  lessThan(?hum, 20)
+  greaterThan(?temp, 32)
+  lessThan(?hum, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -46,7 +64,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 100)
+  greaterThan(?smoke, 75)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -57,8 +75,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 9)
-  greaterThan(?temp, 33)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -69,7 +87,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 450)
+  greaterThan(?co2, 800)
   greaterThan(?smoke, 40)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -87,7 +105,7 @@
 
 # ------------------------------------------------------------
 # 2. BLACK PINE — Karaçam (Pinus nigra)
-# Yüksek risk — iç Anadolu, 500-2000m
+# Yüksek risk — iç Anadolu, 400-2000m, kontinental/montan
 # ------------------------------------------------------------
 
 [BlackPine_HighDroughtRisk:
@@ -130,7 +148,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 470)
+  greaterThan(?co2, 850)
   greaterThan(?smoke, 50)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -148,7 +166,8 @@
 
 # ------------------------------------------------------------
 # 3. SCOTS PINE — Sarıçam (Pinus sylvestris)
-# Orta-yüksek risk — Doğu Anadolu, kıta iklimi, 1000-2200m
+# Orta-yüksek risk — Doğu Anadolu, yüksek rakım (1000-2200m),
+# kıta iklimi; yazlar kısa ama kuru olabilir
 # ------------------------------------------------------------
 
 [ScotsPine_HighDroughtRisk:
@@ -157,7 +176,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 26)
+  greaterThan(?temp, 28)
   lessThan(?hum, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
@@ -168,7 +187,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 70)
+  greaterThan(?smoke, 80)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -180,7 +199,7 @@
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   greaterThan(?wind, 7)
-  greaterThan(?temp, 23)
+  greaterThan(?temp, 25)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -191,8 +210,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 460)
-  greaterThan(?smoke, 45)
+  greaterThan(?co2, 850)
+  greaterThan(?smoke, 50)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
 ]
@@ -209,7 +228,8 @@
 
 # ------------------------------------------------------------
 # 4. TAURUS CEDAR — Toros Sediri (Cedrus libani)
-# Orta-yüksek risk — Toros dağları, 1000-2000m
+# Orta-yüksek risk — Batı/Orta/Doğu Toroslar, 1000-2000m,
+# kireçli yamaç, kalkerli eğimli alanlar
 # ------------------------------------------------------------
 
 [TaurusCedar_HighDroughtRisk:
@@ -229,7 +249,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 80)
+  greaterThan(?smoke, 85)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -241,7 +261,7 @@
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   greaterThan(?wind, 7)
-  greaterThan(?temp, 26)
+  greaterThan(?temp, 28)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -252,7 +272,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 480)
+  greaterThan(?co2, 870)
   greaterThan(?smoke, 55)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -270,7 +290,8 @@
 
 # ------------------------------------------------------------
 # 5. SILVER FIR — Göknar (Abies türleri)
-# Orta risk — Karadeniz iç kesimleri, nemli, 1200-2000m
+# Orta risk — Kuzey Anadolu + Toros kuşağı, nemli-serin,
+# 1200-2000m; sabit sıcaklık eşiği yerine kuraklık anomalisi önemli
 # ------------------------------------------------------------
 
 [SilverFir_HighDroughtRisk:
@@ -279,7 +300,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 28)
+  greaterThan(?temp, 33)
   lessThan(?hum, 25)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
@@ -290,7 +311,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 100)
+  greaterThan(?smoke, 105)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -302,7 +323,7 @@
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   greaterThan(?wind, 9)
-  greaterThan(?temp, 24)
+  greaterThan(?temp, 28)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -313,7 +334,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 500)
+  greaterThan(?co2, 900)
   greaterThan(?smoke, 65)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -331,7 +352,9 @@
 
 # ------------------------------------------------------------
 # 6. ORIENTAL SPRUCE — Doğu Ladini (Picea orientalis)
-# Düşük-orta risk — Doğu Karadeniz, en serin ve nemli
+# Düşük-orta risk — Doğu Karadeniz (Ordu→Artvin), en nemli orman
+# Sis/nem FP riski yüksek; eşikler konservatif tutulmuştur
+# Önceki T>26 çok erken — düzeltildi: T>33
 # ------------------------------------------------------------
 
 [OrientalSpruce_HighDroughtRisk:
@@ -340,7 +363,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 26)
+  greaterThan(?temp, 33)
   lessThan(?hum, 22)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
@@ -351,7 +374,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 110)
+  greaterThan(?smoke, 140)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -363,7 +386,7 @@
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   greaterThan(?wind, 10)
-  greaterThan(?temp, 22)
+  greaterThan(?temp, 28)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -374,8 +397,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 520)
-  greaterThan(?smoke, 70)
+  greaterThan(?co2, 950)
+  greaterThan(?smoke, 75)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
 ]
@@ -393,6 +416,9 @@
 # ------------------------------------------------------------
 # 7. OAK — Meşe (Quercus türleri)
 # Orta risk — Türkiye geneli yaygın, 200-1500m
+# NOT: Meşe Türkiye'de çok heterojen bir gruptur (pırnal, saplı,
+# macar meşesi vb.); üretimde EvergreenOak/DeciduousOak olarak
+# ayrıştırılması önerilir.
 # ------------------------------------------------------------
 
 [Oak_HighDroughtRisk:
@@ -435,7 +461,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "Oak")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 510)
+  greaterThan(?co2, 900)
   greaterThan(?smoke, 70)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -454,6 +480,8 @@
 # ------------------------------------------------------------
 # 8. ORIENTAL BEECH — Kayın (Fagus orientalis)
 # Düşük-orta risk — Karadeniz, nemli ve ılıman, 500-1800m
+# Yüksek alarm bariyeri doğru; kuraklık anomalisi + yıldırım
+# kombinasyonu ile daha anlamlı
 # ------------------------------------------------------------
 
 [OrientalBeech_HighDroughtRisk:
@@ -496,7 +524,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 550)
+  greaterThan(?co2, 950)
   greaterThan(?smoke, 80)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -515,6 +543,9 @@
 # ------------------------------------------------------------
 # 9. ALDER — Kızılağaç (Alnus türleri)
 # Düşük risk — riparian (dere/ırmak kenarı), su etkisi
+# Trakya, Marmara, Batı ve Doğu Karadeniz dere içleri
+# En yüksek alarm bariyeri — komşu alan yangını için kenar etkisi
+# kuralı daha anlamlı olur
 # ------------------------------------------------------------
 
 [Alder_HighDroughtRisk:
@@ -557,7 +588,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "Alder")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 560)
+  greaterThan(?co2, 1000)
   greaterThan(?smoke, 85)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -574,9 +605,10 @@
 
 
 # ------------------------------------------------------------
-# 10. SHRUBLAND — Maki (Akdeniz makisi)
-# Çok yüksek risk — Akdeniz kıyısı, çok hızlı yayılım
-# En düşük eşikler (RedPine'dan bile hassas)
+# 10. SHRUBLAND — Maki (Akdeniz makisi / Pseudomaquis)
+# En agresif ön-alarm sınıfı — Akdeniz kıyısı, çok hızlı yayılım
+# Toz/sis/pollen FP'lerine karşı çoklu doğrulama önerilir
+# RedPine'dan daha düşük eşikler: T>30, smoke>60
 # ------------------------------------------------------------
 
 [Shrubland_HighDroughtRisk:
@@ -585,8 +617,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 34)
-  lessThan(?hum, 22)
+  greaterThan(?temp, 30)
+  lessThan(?hum, 25)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -596,7 +628,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 80)
+  greaterThan(?smoke, 60)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -607,8 +639,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 30)
+  greaterThan(?wind, 6)
+  greaterThan(?temp, 28)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -619,8 +651,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 430)
-  greaterThan(?smoke, 35)
+  greaterThan(?co2, 750)
+  greaterThan(?smoke, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
 ]
@@ -637,7 +669,8 @@
 
 # ------------------------------------------------------------
 # 11. JUNIPER — Ardıç (Juniperus türleri)
-# Orta-yüksek risk — kuru iç Anadolu, yarı-kurak
+# Orta-yüksek risk — kuru iç Anadolu, yarı-kurak, açık yapılı
+# yamaç sistemleri; insan erişimi ve topografya eklenmeli
 # ------------------------------------------------------------
 
 [Juniper_HighDroughtRisk:
@@ -646,7 +679,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 32)
+  greaterThan(?temp, 30)
   lessThan(?hum, 28)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
@@ -657,7 +690,7 @@
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 85)
+  greaterThan(?smoke, 80)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -668,8 +701,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 8)
-  greaterThan(?temp, 29)
+  greaterThan(?wind, 7)
+  greaterThan(?temp, 27)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -680,8 +713,8 @@
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 490)
-  greaterThan(?smoke, 60)
+  greaterThan(?co2, 880)
+  greaterThan(?smoke, 55)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
 ]
@@ -699,6 +732,9 @@
 # ------------------------------------------------------------
 # 12. MIXED — Karma Orman
 # Orta risk — karma tür bileşimi, ortalama eşikler
+# NOT: Bu etiket ontolojik olarak yetersizdir. Üretimde
+# dominantSpecies, secondarySpecies, crownClosure ve
+# developmentClass alanları zorunlu olmalıdır.
 # ------------------------------------------------------------
 
 [Mixed_HighDroughtRisk:
@@ -741,7 +777,7 @@
   (?node <http://pyrosense.io/ontology#forestType> "Mixed")
   (?reading <http://pyrosense.io/ontology#co2Ppm> ?co2)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?co2, 500)
+  greaterThan(?co2, 880)
   greaterThan(?smoke, 60)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "EARLY_FIRE_SIGNAL")
@@ -760,11 +796,10 @@
 # ============================================================
 # TOPOGRAFİK ETKİ KURALLARI
 # Orman tipinden bağımsız — topoloji bazlı risk yükseltme
-# Doküman Kural 4: Vadi etkisi çarpanı
 # ============================================================
 
 # Vadi + yüksek rüzgar + sıcaklık → yayılma riski
-# Vadi topoğrafyası rüzgarı kanalize eder
+# Vadi topografyası rüzgarı kanalize eder (blow-up fire riski)
 [Valley_WindAmplification:
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
@@ -778,7 +813,7 @@
 ]
 
 # Sırt + yüksek rüzgar → erken uyarı kritik
-# Sırt hattında rüzgar açık akar
+# Sırt hattında rüzgar açık akar; rüzgar yönü eklenmeli
 [Ridge_WindExposure:
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
@@ -789,8 +824,9 @@
   (?reading <http://pyrosense.io/ontology#riskFlag> "RIDGE_WIND_EXPOSURE")
 ]
 
-# Yamaç + kuru + rüzgarlı → erken yayılım uyarısı (yangın başlamadan önce)
-# Alevler yamaçta aşağıdan yukarı çok hızlı tırmanır — önceden tespit kritik
+# Yamaç + kuru + rüzgarlı → erken yayılım uyarısı
+# Alevler yamaçta aşağıdan yukarı çok hızlı tırmanır
+# Güney bakılı ve dik yamaçlar (slope_deg, aspect_class) eklenmeli
 [Slope_FireSpread:
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)

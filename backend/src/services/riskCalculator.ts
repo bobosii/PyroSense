@@ -17,6 +17,22 @@ export interface RiskResult {
 }
 
 // Orman tiplerine gore esik degerleri
+// NOT: Bu eşikler pyrosense-rules.jrl ile birebir hizalıdır.
+// Değişiklik yapılırken her iki dosya birlikte güncellenmelidir.
+//
+// CO2 eşikleri v2'de 750-1000 ppm aralığına yükseltildi:
+//   - NDIR sensör doğruluğu ±200 ppm bandındadır
+//   - 2026 atmosferik baz ~422 ppm; 430-560 ppm eski eşikler ölçüm
+//     gürültüsü içindeydi ve yanlış alarm üretiyordu
+//   - EarlySignal CO2+smoke kombinasyon kuralıdır; CO2 tek başına alarm üretmez
+//
+// Tür bazlı düzeltmeler (v1→v2):
+//   RedPine:        droughtTemp 36→32, droughtHum 20→30, smoke 100→75, wind 9→7
+//   Shrubland:      droughtTemp 34→30, droughtHum 22→25, smoke 80→60, wind 7→6, spreadTemp 30→28
+//   OrientalSpruce: droughtTemp 26→33, smoke 110→140, spreadTemp 22→28
+//   ScotsPine:      droughtTemp 26→28, smoke 70→80, spreadTemp 23→25
+//   SilverFir:      droughtTemp 28→33, spreadTemp 24→28
+//   Juniper:        droughtTemp 32→30, spreadWind 8→7, spreadTemp 29→27
 const THRESHHOLDS: Record<
     string,
     {
@@ -29,112 +45,124 @@ const THRESHHOLDS: Record<
         earlySignalSmoke: number;
     }
 > = {
+    // Kızılçam — Türkiye'nin en yangın duyarlı türü (Akdeniz-Ege kıyı kuşağı)
     RedPine: {
-        droughtTemp: 36,
-        droughtHum: 20,
-        smokeAlarm: 100,
-        spreadWind: 9,
-        spreadTemp: 33,
-        earlySignalCo2: 450,
+        droughtTemp: 32,
+        droughtHum: 30,
+        smokeAlarm: 75,
+        spreadWind: 7,
+        spreadTemp: 30,
+        earlySignalCo2: 800,
         earlySignalSmoke: 40,
     },
+    // Karaçam — iç Anadolu, 400-2000m, kontinental
     BlackPine: {
         droughtTemp: 30,
         droughtHum: 30,
         smokeAlarm: 75,
         spreadWind: 7,
         spreadTemp: 27,
-        earlySignalCo2: 470,
+        earlySignalCo2: 850,
         earlySignalSmoke: 50,
     },
+    // Sarıçam — Doğu Anadolu, yüksek rakım (1000-2200m), kıta iklimi
     ScotsPine: {
-        droughtTemp: 26,
+        droughtTemp: 28,
         droughtHum: 30,
-        smokeAlarm: 70,
+        smokeAlarm: 80,
         spreadWind: 7,
-        spreadTemp: 23,
-        earlySignalCo2: 460,
-        earlySignalSmoke: 45,
+        spreadTemp: 25,
+        earlySignalCo2: 850,
+        earlySignalSmoke: 50,
     },
+    // Toros Sediri — Batı/Orta/Doğu Toroslar, 1000-2000m, kireçli yamaç
     TaurusCedar: {
         droughtTemp: 30,
         droughtHum: 28,
-        smokeAlarm: 80,
+        smokeAlarm: 85,
         spreadWind: 7,
-        spreadTemp: 26,
-        earlySignalCo2: 480,
+        spreadTemp: 28,
+        earlySignalCo2: 870,
         earlySignalSmoke: 55,
     },
+    // Göknar — Kuzey Anadolu + Toros kuşağı, nemli-serin, 1200-2000m
     SilverFir: {
-        droughtTemp: 28,
+        droughtTemp: 33,
         droughtHum: 25,
-        smokeAlarm: 100,
+        smokeAlarm: 105,
         spreadWind: 9,
-        spreadTemp: 24,
-        earlySignalCo2: 500,
+        spreadTemp: 28,
+        earlySignalCo2: 900,
         earlySignalSmoke: 65,
     },
+    // Doğu Ladini — Doğu Karadeniz (Ordu→Artvin), en nemli orman; sis/nem FP riski
     OrientalSpruce: {
-        droughtTemp: 26,
+        droughtTemp: 33,
         droughtHum: 22,
-        smokeAlarm: 110,
+        smokeAlarm: 140,
         spreadWind: 10,
-        spreadTemp: 22,
-        earlySignalCo2: 520,
-        earlySignalSmoke: 70,
+        spreadTemp: 28,
+        earlySignalCo2: 950,
+        earlySignalSmoke: 75,
     },
+    // Meşe — Türkiye geneli yaygın, çok heterojen grup
     Oak: {
         droughtTemp: 34,
         droughtHum: 25,
         smokeAlarm: 110,
         spreadWind: 9,
         spreadTemp: 30,
-        earlySignalCo2: 510,
+        earlySignalCo2: 900,
         earlySignalSmoke: 70,
     },
+    // Kayın — Karadeniz, nemli ve ılıman, 500-1800m
     OrientalBeech: {
         droughtTemp: 35,
         droughtHum: 25,
         smokeAlarm: 120,
         spreadWind: 10,
         spreadTemp: 32,
-        earlySignalCo2: 550,
+        earlySignalCo2: 950,
         earlySignalSmoke: 80,
     },
+    // Kızılağaç — riparian (dere/ırmak kenarı); en yüksek alarm bariyeri
     Alder: {
         droughtTemp: 36,
         droughtHum: 20,
         smokeAlarm: 130,
         spreadWind: 11,
         spreadTemp: 33,
-        earlySignalCo2: 560,
+        earlySignalCo2: 1000,
         earlySignalSmoke: 85,
     },
+    // Maki — Akdeniz kıyısı, en agresif ön-alarm sınıfı; hızlı yayılım
     Shrubland: {
-        droughtTemp: 34,
-        droughtHum: 22,
+        droughtTemp: 30,
+        droughtHum: 25,
+        smokeAlarm: 60,
+        spreadWind: 6,
+        spreadTemp: 28,
+        earlySignalCo2: 750,
+        earlySignalSmoke: 30,
+    },
+    // Ardıç — kuru iç Anadolu, yarı-kurak, açık yapılı yamaç
+    Juniper: {
+        droughtTemp: 30,
+        droughtHum: 28,
         smokeAlarm: 80,
         spreadWind: 7,
-        spreadTemp: 30,
-        earlySignalCo2: 430,
-        earlySignalSmoke: 35,
+        spreadTemp: 27,
+        earlySignalCo2: 880,
+        earlySignalSmoke: 55,
     },
-    Juniper: {
-        droughtTemp: 32,
-        droughtHum: 28,
-        smokeAlarm: 85,
-        spreadWind: 8,
-        spreadTemp: 29,
-        earlySignalCo2: 490,
-        earlySignalSmoke: 60,
-    },
+    // Karma orman — ortalama eşikler; üretimde dominantSpecies ile ayrıştırılmalı
     Mixed: {
         droughtTemp: 31,
         droughtHum: 30,
         smokeAlarm: 90,
         spreadWind: 8,
         spreadTemp: 28,
-        earlySignalCo2: 500,
+        earlySignalCo2: 880,
         earlySignalSmoke: 60,
     },
 };
