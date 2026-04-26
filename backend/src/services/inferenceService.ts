@@ -6,6 +6,7 @@ import {
     FUSEKI_PASSWORD,
     ONTOLOGY_GRAPH,
 } from "../constants";
+import { getDb } from "./database";
 
 // Tipler
 
@@ -325,4 +326,180 @@ export async function fetchRuleWeights(
     }
 
     return map;
+}
+
+// ============================================================
+// BÖLGELER ARASI RÜZGAR YAYILIM ÇIKARIMI
+//
+// Mantık:
+//   1. SPARQL → OWL named graph'tan tüm zone koordinatları
+//   2. PostgreSQL → son 10 dakikada HIGH/EXTREME risk üreten
+//      zone'ların en güncel rüzgar yönü ve hızı
+//   3. TypeScript bearing hesabı:
+//      bearing(kaynak → hedef) ≈ kaynak rüzgar yönü (±CONE_DEG)
+//      VE rüzgar hızı > MIN_WIND_MS
+//      → hedef zone DOWNWIND_SPREAD_THREAT alır
+// ============================================================
+
+const CONE_DEG = 45;       // rüzgar yönü tolerans açısı (her iki taraf)
+const MIN_WIND_MS = 4.0;   // minimum rüzgar hızı eşiği
+const LOOKBACK_MIN = 10;   // kaç dakika geriye bakılacak
+const MAX_DIST_KM = 150;   // bu mesafenin ötesindeki zone'lar ihmal edilir
+
+// WGS-84 bearing: kaynak → hedef (0-360°, kuzey = 0)
+function bearingDeg(
+    lat1: number, lon1: number,
+    lat2: number, lon2: number,
+): number {
+    const toRad = Math.PI / 180;
+    const dLon = (lon2 - lon1) * toRad;
+    const φ1 = lat1 * toRad;
+    const φ2 = lat2 * toRad;
+    const y = Math.sin(dLon) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dLon);
+    return ((Math.atan2(y, x) / toRad) + 360) % 360;
+}
+
+// Haversine mesafe (km)
+function distanceKm(
+    lat1: number, lon1: number,
+    lat2: number, lon2: number,
+): number {
+    const R = 6371;
+    const toRad = Math.PI / 180;
+    const dLat = (lat2 - lat1) * toRad;
+    const dLon = (lon2 - lon1) * toRad;
+    const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+// Açısal fark — 360° wrap-around'ı doğru ele alır
+function angleDiff(a: number, b: number): number {
+    const d = Math.abs(a - b) % 360;
+    return d > 180 ? 360 - d : d;
+}
+
+interface ZoneCoord {
+    zoneId: string;
+    lat: number;
+    lon: number;
+}
+
+interface HotZoneWind {
+    zoneId: string;
+    windDirDeg: number;
+    windSpeedMs: number;
+}
+
+// Adım 1: OWL named graph'tan tüm zone koordinatlarını çek
+async function fetchZoneCoords(): Promise<ZoneCoord[]> {
+    const q = `
+${PREFIXES}
+SELECT ?zoneId ?lat ?lon WHERE {
+  GRAPH <${ONTOLOGY_GRAPH}> {
+    ?zone a pyro:Zone ;
+          pyro:zoneId   ?zoneId ;
+          pyro:latitude  ?lat ;
+          pyro:longitude ?lon .
+  }
+}`;
+    const rows = await sparqlSelect(q);
+    return rows.map((b) => ({
+        zoneId: b.zoneId.value,
+        lat:    parseFloat(b.lat.value),
+        lon:    parseFloat(b.lon.value),
+    }));
+}
+
+// Adım 2: Son LOOKBACK_MIN dakikada HIGH/EXTREME risk üreten zone'ların
+//         en güncel rüzgar verisini PostgreSQL'den çek
+async function fetchHotZoneWinds(excludeZoneId: string): Promise<HotZoneWind[]> {
+    const db = getDb();
+    const sql = `
+        WITH hot_zones AS (
+            SELECT DISTINCT zone_id
+            FROM risk_scores
+            WHERE time > NOW() - INTERVAL '${LOOKBACK_MIN} minutes'
+              AND level IN ('HIGH', 'EXTREME')
+              AND zone_id != $1
+        ),
+        latest_wind AS (
+            SELECT DISTINCT ON (s.zone_id)
+                s.zone_id,
+                s.wind_speed_ms,
+                s.wind_dir_deg
+            FROM sensor_readings s
+            WHERE s.zone_id IN (SELECT zone_id FROM hot_zones)
+            ORDER BY s.zone_id, s.time DESC
+        )
+        SELECT zone_id, wind_speed_ms, wind_dir_deg FROM latest_wind
+    `;
+    const result = await db.query(sql, [excludeZoneId]);
+    return result.rows
+        .filter((r: any) => r.wind_dir_deg != null && r.wind_speed_ms != null)
+        .map((r: any) => ({
+            zoneId:      r.zone_id,
+            windDirDeg:  parseFloat(r.wind_dir_deg),
+            windSpeedMs: parseFloat(r.wind_speed_ms),
+        }));
+}
+
+// Ana fonksiyon: mevcut zone için DOWNWIND_SPREAD_THREAT kontrolü
+export async function inferDownwindThreats(
+    currentZoneId: string,
+): Promise<InferredFlag | null> {
+    try {
+        const [coords, hotWinds] = await Promise.all([
+            fetchZoneCoords(),
+            fetchHotZoneWinds(currentZoneId),
+        ]);
+
+        if (hotWinds.length === 0) return null;
+
+        const coordMap = new Map(coords.map((c) => [c.zoneId, c]));
+        const targetCoord = coordMap.get(currentZoneId);
+        if (!targetCoord) return null;
+
+        const threats: string[] = [];
+
+        for (const hot of hotWinds) {
+            if (hot.windSpeedMs < MIN_WIND_MS) continue;
+
+            const srcCoord = coordMap.get(hot.zoneId);
+            if (!srcCoord) continue;
+
+            const dist = distanceKm(srcCoord.lat, srcCoord.lon, targetCoord.lat, targetCoord.lon);
+            if (dist > MAX_DIST_KM) continue;
+
+            const bearing = bearingDeg(
+                srcCoord.lat, srcCoord.lon,
+                targetCoord.lat, targetCoord.lon,
+            );
+            const diff = angleDiff(hot.windDirDeg, bearing);
+
+            if (diff <= CONE_DEG) {
+                threats.push(
+                    `${hot.zoneId} → ${currentZoneId} ` +
+                    `| bearing=${bearing.toFixed(0)}° windDir=${hot.windDirDeg.toFixed(0)}° ` +
+                    `diff=${diff.toFixed(0)}° dist=${dist.toFixed(0)}km ` +
+                    `wind=${hot.windSpeedMs.toFixed(1)}m/s`,
+                );
+            }
+        }
+
+        if (threats.length === 0) return null;
+
+        const weights = await fetchRuleWeights(["DOWNWIND_SPREAD_THREAT"]);
+        return {
+            rule:      "DOWNWIND_SPREAD_THREAT",
+            label:     "Rüzgar Altı Yayılım Tehdidi",
+            condition: threats.join(" | "),
+            weight:    weights["DOWNWIND_SPREAD_THREAT"] ?? 25,
+        };
+    } catch (err) {
+        console.error("[inferDownwindThreats] hata:", err);
+        return null;
+    }
 }

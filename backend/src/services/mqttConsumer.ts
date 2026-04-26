@@ -9,7 +9,7 @@ import { closeAlarm, saveAlarm, saveRiskScore } from "./riskRepository";
 import { logAlarmEvent } from "./alarmLogRepository";
 import { broadcast } from "./wsGateway";
 import { getZoneDrought } from "./weatherRepository";
-import { inferRiskFlags } from "./inferenceService";
+import { inferRiskFlags, inferDownwindThreats } from "./inferenceService";
 import { calculateScore } from "./riskCalculator";
 
 const PYRO = "http://pyrosense.io/ontology#";
@@ -41,10 +41,18 @@ export function startMqttConsumer() {
 
             // 4. Ontoloji tabanli cikartim yapalim.
             const readingUri = `${PYRO}reading_${message.device_id}_${message.timestamp}`;
-            const inferredFlags = await inferRiskFlags(readingUri);
+            const [inferredFlags, downwindFlag] = await Promise.all([
+                inferRiskFlags(readingUri),
+                inferDownwindThreats(message.zone_id),
+            ]);
+
+            // 4b. Bölgeler arası rüzgar yayılım flag'i varsa ekle
+            const allFlags = downwindFlag
+                ? [...inferredFlags, downwindFlag]
+                : inferredFlags;
 
             // 5. Skor ve seviye hesapla
-            const risk = calculateScore(inferredFlags);
+            const risk = calculateScore(allFlags);
 
             // 6. Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
