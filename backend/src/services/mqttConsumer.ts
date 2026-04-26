@@ -4,13 +4,13 @@ import { saveSensorReading } from "./sensorRepository";
 import { toRdfTurtle } from "./rdfConverter";
 import { uploadTurtle } from "./fusekiClient";
 import { MQTT_URL } from "../constants";
-import { queryReading } from "./sparqlService";
-import { calculateRisk } from "./riskCalculator";
 import { evaluateAlarm } from "./alarmManager";
 import { closeAlarm, saveAlarm, saveRiskScore } from "./riskRepository";
 import { logAlarmEvent } from "./alarmLogRepository";
 import { broadcast } from "./wsGateway";
 import { getZoneDrought } from "./weatherRepository";
+import { inferRiskFlags } from "./inferenceService";
+import { calculateScore } from "./riskCalculator";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
@@ -32,31 +32,27 @@ export function startMqttConsumer() {
             // 1. Postgresql e kayit edelim
             await saveSensorReading(message);
 
-            // 2. RDF e cevirelim ve fuseki ye yukleyelim.
-            const turtle = toRdfTurtle(message);
+            // 2. Drough Class i al - Turtle a yazmak icin once cekelim.
+            const droughtClass = await getZoneDrought(message.zone_id);
+
+            // 3. RDF'e cevirelim
+            const turtle = toRdfTurtle(message, droughtClass);
             await uploadTurtle(turtle);
 
-            // 3. Fuseki'den semantik okuma yap
+            // 4. Ontoloji tabanli cikartim yapalim.
             const readingUri = `${PYRO}reading_${message.device_id}_${message.timestamp}`;
-            const sparqlReading = await queryReading(readingUri);
+            const inferredFlags = await inferRiskFlags(readingUri);
 
-            if (!sparqlReading) {
-                console.warn(
-                    `[${message.zone_id}] SPARQL: okuma bulunamadi — ${readingUri}`,
-                );
-                return;
-            }
+            // 5. Skor ve seviye hesapla
+            const risk = calculateScore(inferredFlags);
 
-            // 4. Risk hesaplamasi yapalim.
-            const droughtClass = await getZoneDrought(message.zone_id);
-            const risk = calculateRisk(sparqlReading, droughtClass);
-
-            // 5. Alarm karari ver
+            // 6. Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
 
-            // 6. PostgreSQL risk skoru kayit et.
+            // 7. PostgreSQL risk skoru kayit et.
             await saveRiskScore(message.zone_id, risk, readingUri, message.timestamp);
 
+            // 8. Websocket broadcast, sensor degerleri direkt mesajdan oku
             broadcast({
                 type: "RISK_UPDATE",
                 zoneId: message.zone_id,
@@ -66,10 +62,10 @@ export function startMqttConsumer() {
                 reasoningLog: risk.reasoningLog,
                 forestType: message.forest_type,
                 topology: message.topology,
-                temperature: sparqlReading.temperature,
-                humidity: sparqlReading.humidity,
-                smokePpm: sparqlReading.smokePpm,
-                windSpeedMs: sparqlReading.windSpeedMs,
+                temperature: message.readings.temperature,
+                humidity: message.readings.humidity,
+                smokePpm: message.readings.smoke_ppm,
+                windSpeedMs: message.readings.wind_speed_ms,
                 timeStamp: message.timestamp,
                 alarm: {
                     active: alarm.shouldAlert,
@@ -78,7 +74,7 @@ export function startMqttConsumer() {
                 },
             });
 
-            // 7. Alarm eventleri - Postgresql state + mongodb audit log
+            // 9. Alarm eventleri - Postgresql state + mongodb audit log
             if (alarm.justOpened) {
                 await saveAlarm(message.zone_id, risk.level, risk.flags);
                 await logAlarmEvent({
@@ -107,7 +103,7 @@ export function startMqttConsumer() {
                 console.log(`AlARM KAPANDI zone=${message.zone_id}`);
             }
 
-            // 8. Log
+            // 10. Log
             const flagStr = risk.flags.length > 0 ? risk.flags.join(", ") : "—";
             console.log(
                 `[${message.zone_id}] ${risk.level} (${risk.score}) | ` +

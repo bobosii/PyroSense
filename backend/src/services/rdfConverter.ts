@@ -11,7 +11,10 @@ function sanitize(v: number | undefined | null): number {
     return v;
 }
 
-export function toRdfTurtle(msg: SensorMessage): string {
+export function toRdfTurtle(
+    msg: SensorMessage,
+    droughtClass: string = "NormalMoisture",
+): string {
     const nodeId = `${PYRO}${msg.device_id}`;
     const readId = `${PYRO}reading_${msg.device_id}_${msg.timestamp}`;
 
@@ -24,7 +27,8 @@ export function toRdfTurtle(msg: SensorMessage): string {
     pyro:deviceId    "${msg.device_id}" ;
     pyro:zoneId    "${msg.zone_id}" ;
     pyro:forestType "${msg.forest_type}" ;
-    pyro:topology "${msg.topology}" .
+    pyro:topology "${msg.topology}" ;
+    pyro:droughtClass "${droughtClass}" .
 
 <${readId}> a pyro:SensorReading ;
     ssn:isObservedBy   <${nodeId}> ;

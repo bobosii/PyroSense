@@ -154,6 +154,9 @@ pyro:forestType       a owl:DatatypeProperty ; rdfs:domain pyro:SensorNode ; rdf
 pyro:topology         a owl:DatatypeProperty ; rdfs:domain pyro:SensorNode ; rdfs:range xsd:string ;
     rdfs:label "Topografya (string)" ;
     rdfs:comment "JRL kural eşleştirmesi için string literal. Değerler: Slope, Valley, Ridge, Plain" .
+pyro:droughtClass     a owl:DatatypeProperty ; rdfs:domain pyro:SensorNode ; rdfs:range xsd:string ;
+    rdfs:label "Kuraklık Sınıfı (string)" ;
+    rdfs:comment "Open-Meteo'dan gelen kuraklık sınıfı. Değerler: NormalMoisture, ModerateDrought, ExtremeDrought. SPARQL sorguları bu değeri okuyarak eşik çarpanını hesaplar." .
 
 # İlişkiler
 # NOT: rdfConverter.ts SensorReading → SensorNode yönünde ssn:isObservedBy kullanır.
@@ -210,7 +213,82 @@ pyro:riskScore a owl:DatatypeProperty ;
     rdfs:label "Risk Skoru (0-100)" .
 
 # ============================================================
-# BÖLÜM 5: SWRL KURALLARI
+# BÖLÜM 5: KURAL AĞIRLIKLARI (RiskRule Named Individuals)
+#
+# Tüm kural ağırlıkları burada tanımlanır.
+# TypeScript'te WEIGHTS sabiti yoktur; ağırlıklar SPARQL ile bu
+# bireylerden okunur. Bir ağırlığı değiştirmek için sadece bu
+# dosyayı güncellemek yeterlidir.
+# ============================================================
+
+pyro:RiskRule a owl:Class ;
+    rdfs:label "Risk Kuralı" ;
+    rdfs:comment "Yangın risk çıkarım kuralı. Her örnek bir kural kimliği ve ağırlık taşır." .
+
+pyro:ruleId a owl:DatatypeProperty ;
+    rdfs:domain pyro:RiskRule ;
+    rdfs:range  xsd:string ;
+    rdfs:label  "Kural Kimliği" ;
+    rdfs:comment "inferenceService.ts ve mqttConsumer.ts'deki flag isimleriyle eşleşmeli." .
+
+pyro:ruleWeight a owl:DatatypeProperty ;
+    rdfs:domain pyro:RiskRule ;
+    rdfs:range  xsd:integer ;
+    rdfs:label  "Kural Ağırlığı (0-100)" ;
+    rdfs:comment "Risk skoruna katkı. Toplam 100'ü aşarsa Math.min(100, ...) ile kesilir." .
+
+# --- Kural Örnekleri ---
+
+pyro:rule_FLAME_DETECTED a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "FLAME_DETECTED" ;
+    pyro:ruleWeight "65"^^xsd:integer ;
+    rdfs:label      "Alev Tespiti" ;
+    rdfs:comment    "Alev sensörü aktif sinyal verdi. En yüksek ağırlık: doğrudan yangın kanıtı." .
+
+pyro:rule_SLOPE_FIRE_SPREAD_CRITICAL a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "SLOPE_FIRE_SPREAD_CRITICAL" ;
+    pyro:ruleWeight "30"^^xsd:integer ;
+    rdfs:label      "Yamaç Yayılım Kritik" ;
+    rdfs:comment    "Yamaç + düşük nem + rüzgar + yüksek sıcaklık kombinasyonu." .
+
+pyro:rule_SMOKE_ALARM a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "SMOKE_ALARM" ;
+    pyro:ruleWeight "35"^^xsd:integer ;
+    rdfs:label      "Duman Alarmı" ;
+    rdfs:comment    "Türe özgü duman eşiği aşıldı." .
+
+pyro:rule_EARLY_FIRE_SIGNAL a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "EARLY_FIRE_SIGNAL" ;
+    pyro:ruleWeight "25"^^xsd:integer ;
+    rdfs:label      "Erken Yangın Sinyali" ;
+    rdfs:comment    "CO₂ + duman kombinasyonu. NDIR sensör gürültüsünü aşan çift koşul." .
+
+pyro:rule_HIGH_SPREAD_RISK a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "HIGH_SPREAD_RISK" ;
+    pyro:ruleWeight "20"^^xsd:integer ;
+    rdfs:label      "Yüksek Yayılım Riski" ;
+    rdfs:comment    "Rüzgar hızı + sıcaklık kombinasyonu yayılım koşullarını sağlıyor." .
+
+pyro:rule_HIGH_DROUGHT_RISK a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "HIGH_DROUGHT_RISK" ;
+    pyro:ruleWeight "20"^^xsd:integer ;
+    rdfs:label      "Yüksek Kuraklık Riski" ;
+    rdfs:comment    "Türe özgü sıcaklık + nem eşiği kombinasyonu." .
+
+pyro:rule_VALLEY_WIND_AMPLIFICATION a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "VALLEY_WIND_AMPLIFICATION" ;
+    pyro:ruleWeight "15"^^xsd:integer ;
+    rdfs:label      "Vadi Rüzgar Etkisi" ;
+    rdfs:comment    "Vadi topolojisinde rüzgar kanallaşması yangın yayılımını hızlandırır." .
+
+pyro:rule_RIDGE_WIND_EXPOSURE a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "RIDGE_WIND_EXPOSURE" ;
+    pyro:ruleWeight "10"^^xsd:integer ;
+    rdfs:label      "Sırt Rüzgar Açıklığı" ;
+    rdfs:comment    "Sırt topolojisinde yüksek rüzgar maruziyeti." .
+
+# ============================================================
+# BÖLÜM 6: SWRL KURALLARI
 #
 # Not: Bu kurallar Apache Jena Fuseki ile çalışmak için
 # Jena Rule Language formatında da yazılacak.
