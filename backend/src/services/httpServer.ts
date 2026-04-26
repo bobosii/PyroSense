@@ -59,6 +59,92 @@ export function startHttpServer(): void {
         }
     });
 
+    app.get("/validation-metrics", async (_req, res) => {
+        try {
+            const db = getDb();
+
+            const result = await db.query(`
+            SELECT
+                -- Aktif Yangın Tespiti (activefire → HIGH veya EXTREME beklenir)
+                COUNT(*) FILTER (
+                    WHERE scenario = 'activefire' AND level IN ('HIGH', 'EXTREME')
+                ) AS fire_tp,
+                COUNT(*) FILTER (
+                    WHERE scenario = 'activefire' AND level IN ('LOW', 'MODERATE')
+                ) AS fire_fn,
+
+                -- Yangın Öncesi Tehlike Tespiti (prefire → MODERATE+ beklenir)
+                COUNT(*) FILTER (
+                    WHERE scenario = 'prefire' AND level IN ('MODERATE', 'HIGH', 'EXTREME')
+                ) AS danger_tp,
+                COUNT(*) FILTER (
+                    WHERE scenario = 'prefire' AND level = 'LOW'
+                ) AS danger_fn,
+
+                -- Yanlış Alarm (normal → LOW beklenir)
+                COUNT(*) FILTER (
+                    WHERE scenario = 'normal' AND level IN ('MODERATE', 'HIGH', 'EXTREME')
+                ) AS false_positive,
+                COUNT(*) FILTER (
+                    WHERE scenario = 'normal' AND level = 'LOW'
+                ) AS true_negative,
+
+                -- Sensör Arızası Testi (sensorFault → HIGH/EXTREME olmamalı)
+                COUNT(*) FILTER (
+                    WHERE scenario = 'sensorFault' AND level IN ('HIGH', 'EXTREME')
+                ) AS fault_false_alarm,
+                COUNT(*) FILTER (
+                    WHERE scenario = 'sensorFault' AND level IN ('LOW', 'MODERATE')
+                ) AS fault_correct,
+
+                -- Toplam kayıt
+                COUNT(*) AS total_readings
+            FROM risk_scores
+                `);
+            const r = result.rows[0];
+
+            const fireTp = parseInt(r.fire_tp);
+            const fireFn = parseInt(r.fire_fn);
+            const dangerTp = parseInt(r.danger_tp);
+            const dangerFn = parseInt(r.danger_fn);
+            const fp = parseInt(r.false_positive);
+            const tn = parseInt(r.true_negative);
+
+            res.json({
+                activeFireDetection: {
+                    truePositive: fireTp,
+                    falseNegative: fireFn,
+                    precision:
+                        fireTp + fp > 0 ? +(fireTp / (fireTp + fp)).toFixed(3) : null,
+                    recall:
+                        fireTp + fireFn > 0
+                            ? +(fireTp / (fireTp + fireFn)).toFixed(3)
+                            : null,
+                },
+                dangerDetection: {
+                    truePositive: dangerTp,
+                    falseNegative: dangerFn,
+                    recall:
+                        dangerTp + dangerFn > 0
+                            ? +(dangerTp / (dangerTp + dangerFn)).toFixed(3)
+                            : null,
+                },
+                normalConditions: {
+                    falsePositive: fp,
+                    trueNegative: tn,
+                    specificity: tn + fp > 0 ? +(tn / (tn + fp)).toFixed(3) : null,
+                },
+                sensorFault: {
+                    falseAlarms: parseInt(r.fault_false_alarm),
+                    correctlySuppressed: parseInt(r.fault_correct),
+                },
+                totalReadings: parseInt(r.total_readings),
+            });
+        } catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
+    });
+
     app.listen(PORT, () => {
         console.log(`HTTP API: http://localhost:${PORT}`);
     });

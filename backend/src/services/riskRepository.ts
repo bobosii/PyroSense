@@ -9,11 +9,12 @@ export async function saveRiskScore(
     risk: RiskResult,
     sparqlUri: string,
     timeStamp: string,
+    scenario: string,
 ): Promise<void> {
     const db = getDb();
 
-    const sql = `INSERT INTO risk_scores (time, zone_id, score, level, source, sparql_uri)
-        VALUES ($1, $2, $3, $4, $5, $6)`;
+    const sql = `INSERT INTO risk_scores (time, zone_id, score, level, source, sparql_uri, scenario)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)`;
     await db.query(sql, [
         timeStamp,
         zoneId,
@@ -21,6 +22,7 @@ export async function saveRiskScore(
         risk.level,
         "ontology",
         sparqlUri,
+        scenario,
     ]);
     console.log(`[RISK] ${zoneId} -> ${risk.level} (${risk.score})`);
 }

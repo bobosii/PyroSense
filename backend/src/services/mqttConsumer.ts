@@ -50,7 +50,13 @@ export function startMqttConsumer() {
             const alarm = evaluateAlarm(message.zone_id, risk.score);
 
             // 7. PostgreSQL risk skoru kayit et.
-            await saveRiskScore(message.zone_id, risk, readingUri, message.timestamp);
+            await saveRiskScore(
+                message.zone_id,
+                risk,
+                readingUri,
+                message.timestamp,
+                message.scenario,
+            );
 
             // 8. Websocket broadcast, sensor degerleri direkt mesajdan oku
             broadcast({
