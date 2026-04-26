@@ -1,5 +1,11 @@
 import axios from "axios";
-import { FUSEKI_URL, FUSEKI_DATASET, FUSEKI_USER, FUSEKI_PASSWORD } from "../constants";
+import {
+    FUSEKI_URL,
+    FUSEKI_DATASET,
+    FUSEKI_USER,
+    FUSEKI_PASSWORD,
+    ONTOLOGY_GRAPH,
+} from "../constants";
 import path from "path";
 import fs from "fs";
 
@@ -15,6 +21,13 @@ export async function uploadTurtle(turtle: string): Promise<void> {
 export async function loadOntology(): Promise<void> {
     const owlPath = path.resolve(__dirname, "../../../ontology/pyrosense-core.owl");
     const turtle = fs.readFileSync(owlPath, "utf-8");
-    await uploadTurtle(turtle);
+
+    // PUT - named graph'a yazalim, her restart da uzerine yazalim bu sayede duplicate ihtimalini eleyelim
+    const url = `${FUSEKI_URL}/${FUSEKI_DATASET}/data?graph=${encodeURIComponent(ONTOLOGY_GRAPH)}`;
+    await axios.put(url, turtle, {
+        headers: { "Content-Type": "text/turtle" },
+        auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
+    });
+
     console.log("[FUSEKI] Ontoloji yuklendi - RiskRule aktif");
 }

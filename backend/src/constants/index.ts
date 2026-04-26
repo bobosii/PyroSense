@@ -20,6 +20,7 @@ export const FUSEKI_URL = getEnvVar("FUSEKI_URL");
 export const FUSEKI_DATASET = getEnvVar("FUSEKI_DATASET");
 export const FUSEKI_USER = getEnvVar("FUSEKI_USER");
 export const FUSEKI_PASSWORD = getEnvVar("FUSEKI_PASSWORD");
+export const ONTOLOGY_GRAPH = getEnvVar("ONTOLOGY_GRAPH");
 
 // PostgreSQL
 export const DATABASE_URL = getEnvVar("DATABASE_URL");
