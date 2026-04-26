@@ -17,9 +17,18 @@ export interface WeatherData {
 }
 
 const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
-    zone_a: { lat: 36.97, lon: 30.53 }, // Düzlerçamı Kızılçam ormanı
-    zone_b: { lat: 37.01, lon: 30.51 }, // Güver Vadisi Meşeliği
-    zone_c: { lat: 37.03, lon: 30.47 }, // Güllük Dağı Karma orman
+    zone_redpine:        { lat: 37.2151, lon: 28.3627 }, // Kızılçam — Muğla/Menteşe
+    zone_blackpine:      { lat: 41.3780, lon: 33.7743 }, // Karaçam — Kastamonu
+    zone_scotspine:      { lat: 40.3334, lon: 42.5905 }, // Sarıçam — Sarıkamış/Kars
+    zone_tauruscedar:    { lat: 37.1000, lon: 34.6000 }, // Toros Sediri — Toros Dağları
+    zone_silverfir:      { lat: 40.7350, lon: 31.6000 }, // Göknar — Bolu/Abant
+    zone_orientalspruce: { lat: 41.0500, lon: 40.5000 }, // Doğu Ladini — Rize/Artvin
+    zone_oak:            { lat: 40.4697, lon: 32.6558 }, // Meşe — Kızılcahamam
+    zone_orientalbeech:  { lat: 41.2000, lon: 32.6000 }, // Doğu Kayını — Karabük
+    zone_alder:          { lat: 36.3000, lon: 33.9833 }, // Kızılağaç — Göksu Deltası
+    zone_shrubland:      { lat: 36.8841, lon: 30.7056 }, // Maki — Antalya
+    zone_juniper:        { lat: 37.6750, lon: 31.7250 }, // Ardıç — Beyşehir/Konya
+    zone_mixed:          { lat: 41.1944, lon: 28.9514 }, // Karma — Belgrad Ormanı/İstanbul
 };
 
 function calcDroughtClass(precipitation30d: number): WeatherData["droughtClass"] {

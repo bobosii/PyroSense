@@ -111,6 +111,135 @@ pyro:hasDroughtIndex a owl:ObjectProperty ;
     rdfs:range pyro:DroughtIndex ;
     rdfs:label "kuraklık indeksi" .
 
+pyro:latitude a owl:DatatypeProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range xsd:double ;
+    rdfs:label "Enlem (WGS84)" ;
+    rdfs:comment "Bölge merkez koordinatı — bölgeler arası rüzgar yayılım hesabında kullanılır." .
+
+pyro:longitude a owl:DatatypeProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range xsd:double ;
+    rdfs:label "Boylam (WGS84)" .
+
+pyro:zoneId a owl:DatatypeProperty ;
+    rdfs:domain pyro:Zone ;
+    rdfs:range xsd:string ;
+    rdfs:label "Bölge Kimliği" ;
+    rdfs:comment "Simülatör ve MQTT topic'teki zone_id ile eşleşmeli." .
+
+# ============================================================
+# BÖLÜM 1b: BÖLGE NAMED INDIVIDUALS — 12 Türkiye Orman Tipi
+# ============================================================
+
+pyro:zone_redpine a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_redpine" ;
+    pyro:latitude   "37.2151"^^xsd:double ;
+    pyro:longitude  "28.3627"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Kızılçam — Muğla/Menteşe" ;
+    rdfs:comment    "Akdeniz kıyısı kızılçam ormanı. Yüksek yangın riski bölgesi." .
+
+pyro:zone_blackpine a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_blackpine" ;
+    pyro:latitude   "41.3780"^^xsd:double ;
+    pyro:longitude  "33.7743"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:RidgeTopology ;
+    rdfs:label      "Karaçam — Kastamonu" ;
+    rdfs:comment    "İç Anadolu–Karadeniz geçiş kuşağı karaçam ormanı." .
+
+pyro:zone_scotspine a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_scotspine" ;
+    pyro:latitude   "40.3334"^^xsd:double ;
+    pyro:longitude  "42.5905"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:RidgeTopology ;
+    rdfs:label      "Sarıçam — Sarıkamış/Kars" ;
+    rdfs:comment    "Kuzeydoğu yüksek plato sarıçam ormanı." .
+
+pyro:zone_tauruscedar a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_tauruscedar" ;
+    pyro:latitude   "37.1000"^^xsd:double ;
+    pyro:longitude  "34.6000"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Toros Sediri — Toros Dağları/Mersin" ;
+    rdfs:comment    "Toros Dağları endemik sedir ormanı." .
+
+pyro:zone_silverfir a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_silverfir" ;
+    pyro:latitude   "40.7350"^^xsd:double ;
+    pyro:longitude  "31.6000"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Göknar — Bolu/Abant" ;
+    rdfs:comment    "Karadeniz arka sırası göknar ormanı." .
+
+pyro:zone_orientalspruce a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_orientalspruce" ;
+    pyro:latitude   "41.0500"^^xsd:double ;
+    pyro:longitude  "40.5000"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Doğu Ladini — Rize/Artvin" ;
+    rdfs:comment    "Doğu Karadeniz yağışlı kuşak ladin ormanı." .
+
+pyro:zone_oak a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_oak" ;
+    pyro:latitude   "40.4697"^^xsd:double ;
+    pyro:longitude  "32.6558"^^xsd:double ;
+    pyro:hasForestType pyro:DeciduousForest ;
+    pyro:hasTopology   pyro:ValleyTopology ;
+    rdfs:label      "Meşe — Kızılcahamam/Ankara" ;
+    rdfs:comment    "İç Anadolu–Karadeniz geçiş kuşağı meşe ormanı." .
+
+pyro:zone_orientalbeech a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_orientalbeech" ;
+    pyro:latitude   "41.2000"^^xsd:double ;
+    pyro:longitude  "32.6000"^^xsd:double ;
+    pyro:hasForestType pyro:DeciduousForest ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Doğu Kayını — Karabük/Yenice" ;
+    rdfs:comment    "Batı Karadeniz kayın ormanı." .
+
+pyro:zone_alder a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_alder" ;
+    pyro:latitude   "36.3000"^^xsd:double ;
+    pyro:longitude  "33.9833"^^xsd:double ;
+    pyro:hasForestType pyro:DeciduousForest ;
+    pyro:hasTopology   pyro:ValleyTopology ;
+    rdfs:label      "Kızılağaç — Göksu Deltası/Mersin" ;
+    rdfs:comment    "Sulak alan kenarı kızılağaç ormanı." .
+
+pyro:zone_shrubland a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_shrubland" ;
+    pyro:latitude   "36.8841"^^xsd:double ;
+    pyro:longitude  "30.7056"^^xsd:double ;
+    pyro:hasForestType pyro:ShrubLand ;
+    pyro:hasTopology   pyro:SlopeTopology ;
+    rdfs:label      "Maki — Antalya Kıyısı" ;
+    rdfs:comment    "Akdeniz kuru maki, yaz kuraklığında yüksek yangın riski." .
+
+pyro:zone_juniper a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_juniper" ;
+    pyro:latitude   "37.6750"^^xsd:double ;
+    pyro:longitude  "31.7250"^^xsd:double ;
+    pyro:hasForestType pyro:ConiferForest ;
+    pyro:hasTopology   pyro:PlainTopology ;
+    rdfs:label      "Ardıç — Beyşehir/Konya" ;
+    rdfs:comment    "İç Anadolu yarı-kurak ardıç ormanı." .
+
+pyro:zone_mixed a owl:NamedIndividual, pyro:Zone ;
+    pyro:zoneId     "zone_mixed" ;
+    pyro:latitude   "41.1944"^^xsd:double ;
+    pyro:longitude  "28.9514"^^xsd:double ;
+    pyro:hasForestType pyro:MixedForest ;
+    pyro:hasTopology   pyro:ValleyTopology ;
+    rdfs:label      "Karma Orman — Belgrad Ormanı/İstanbul" ;
+    rdfs:comment    "Karma orman, kentsel-periferik sınır bölgesi." .
+
 # ============================================================
 # BÖLÜM 2: SENSÖR ONTOLOJİSİ (W3C SSN'den türetilmiş)
 # ============================================================
@@ -286,6 +415,12 @@ pyro:rule_RIDGE_WIND_EXPOSURE a owl:NamedIndividual, pyro:RiskRule ;
     pyro:ruleWeight "10"^^xsd:integer ;
     rdfs:label      "Sırt Rüzgar Açıklığı" ;
     rdfs:comment    "Sırt topolojisinde yüksek rüzgar maruziyeti." .
+
+pyro:rule_DOWNWIND_SPREAD_THREAT a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "DOWNWIND_SPREAD_THREAT" ;
+    pyro:ruleWeight "25"^^xsd:integer ;
+    rdfs:label      "Rüzgar Altı Yayılım Tehdidi" ;
+    rdfs:comment    "Komşu bölgede aktif yangın + mevcut bölge rüzgar altı konumunda. Bölgeler arası yayılım riski." .
 
 # ============================================================
 # BÖLÜM 6: SWRL KURALLARI

@@ -15,9 +15,10 @@
 
 mod models;
 mod mqtt;
+mod nodes;
 mod scenarios;
 
-use models::sensor::{ForestType, NodeConfig, SensorReading, Topology};
+use models::sensor::SensorReading;
 use mqtt::publisher::MqttPublisher;
 use scenarios::{FilterState, Scenario, SensorPhysics};
 
@@ -109,33 +110,9 @@ async fn main() {
         mqtt_host, mqtt_port, publish_interval_secs
     );
 
-    // Simüle edilecek sensör düğümleri
-    let nodes = vec![
-        NodeConfig {
-            device_id: "node_a_01".to_string(),
-            zone_id: "zone_a".to_string(),
-            forest_type: ForestType::RedPine,
-            topology: Topology::Slope,
-            base_lat: 36.8969,
-            base_lon: 30.7133,
-        },
-        NodeConfig {
-            device_id: "node_b_01".to_string(),
-            zone_id: "zone_b".to_string(),
-            forest_type: ForestType::Oak,
-            topology: Topology::Valley,
-            base_lat: 36.8800,
-            base_lon: 30.7000,
-        },
-        NodeConfig {
-            device_id: "node_c_01".to_string(),
-            zone_id: "zone_c".to_string(),
-            forest_type: ForestType::Mixed,
-            topology: Topology::Ridge,
-            base_lat: 36.9100,
-            base_lon: 30.7300,
-        },
-    ];
+    // Tüm sensör düğümleri nodes.rs'den yükleniyor
+    // 12 zone × 3 node = 36 düğüm
+    let nodes = nodes::all_nodes();
     // Her düğüm için filtre durumu — EMA ve rüzgar penceresi
     let mut filter_states: HashMap<String, FilterState> = nodes
         .iter()

@@ -40,7 +40,8 @@ CREATE TABLE IF NOT EXISTS risk_scores (
     score       INTEGER         NOT NULL,   -- 0-100
     level       TEXT            NOT NULL,   -- NEGLIGIBLE | LOW | MODERATE | HIGH | EXTREME
     source      TEXT            DEFAULT 'ontology',  -- 'ontology' | 'fallback'
-    sparql_uri  TEXT                        -- Fuseki'deki triple URI'si
+    sparql_uri  TEXT,                       -- Fuseki'deki triple URI'si
+    scenario    TEXT                        -- simülatör ground truth: normal | prefire | activefire | sensorFault
 );
 
 SELECT create_hypertable('risk_scores', 'time', if_not_exists => TRUE);
@@ -76,15 +77,26 @@ CREATE TABLE IF NOT EXISTS zones (
     drought_index   TEXT            DEFAULT 'NormalMoisture'
 );
 
--- Gerçek Antalya orman bölgeleri
+-- 12 Türkiye orman tipi bölgesi — her orman tipi için bir sensör düğümü
 INSERT INTO zones VALUES
-    ('zone_a', 'Düzlerçamı Kızılçam',    'conifer',   36.970, 30.530, 'slope',  'NormalMoisture'),
-    ('zone_b', 'Güver Vadisi Meşeliği',  'deciduous', 37.010, 30.510, 'valley', 'NormalMoisture'),
-    ('zone_c', 'Güllük Dağı Karma',      'mixed',     37.030, 30.470, 'ridge',  'NormalMoisture')
+    ('zone_redpine',        'Kızılçam — Muğla/Menteşe',          'conifer',   37.2151, 28.3627, 'slope',  'NormalMoisture'),
+    ('zone_blackpine',      'Karaçam — Kastamonu',               'conifer',   41.3780, 33.7743, 'ridge',  'NormalMoisture'),
+    ('zone_scotspine',      'Sarıçam — Sarıkamış/Kars',          'conifer',   40.3334, 42.5905, 'ridge',  'NormalMoisture'),
+    ('zone_tauruscedar',    'Toros Sediri — Toros Dağları',      'conifer',   37.1000, 34.6000, 'slope',  'NormalMoisture'),
+    ('zone_silverfir',      'Göknar — Bolu/Abant',               'conifer',   40.7350, 31.6000, 'slope',  'NormalMoisture'),
+    ('zone_orientalspruce', 'Doğu Ladini — Rize/Artvin',         'conifer',   41.0500, 40.5000, 'slope',  'NormalMoisture'),
+    ('zone_oak',            'Meşe — Kızılcahamam/Ankara',        'deciduous', 40.4697, 32.6558, 'valley', 'NormalMoisture'),
+    ('zone_orientalbeech',  'Doğu Kayını — Karabük/Yenice',      'deciduous', 41.2000, 32.6000, 'slope',  'NormalMoisture'),
+    ('zone_alder',          'Kızılağaç — Göksu Deltası/Mersin',  'deciduous', 36.3000, 33.9833, 'valley', 'NormalMoisture'),
+    ('zone_shrubland',      'Maki — Antalya Kıyısı',             'shrub',     36.8841, 30.7056, 'slope',  'NormalMoisture'),
+    ('zone_juniper',        'Ardıç — Beyşehir/Konya',            'conifer',   37.6750, 31.7250, 'plain',  'NormalMoisture'),
+    ('zone_mixed',          'Karma — Belgrad Ormanı/İstanbul',   'mixed',     41.1944, 28.9514, 'valley', 'NormalMoisture')
 ON CONFLICT (zone_id) DO UPDATE SET
-    name      = EXCLUDED.name,
-    latitude  = EXCLUDED.latitude,
-    longitude = EXCLUDED.longitude;
+    name        = EXCLUDED.name,
+    forest_type = EXCLUDED.forest_type,
+    latitude    = EXCLUDED.latitude,
+    longitude   = EXCLUDED.longitude,
+    topology    = EXCLUDED.topology;
 
 -- ----------------------------------------------------------
 -- Hava Durumu Önbelleği (Open-Meteo)
