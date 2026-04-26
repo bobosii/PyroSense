@@ -1,5 +1,11 @@
 import axios from "axios";
-import { FUSEKI_URL, FUSEKI_DATASET, FUSEKI_USER, FUSEKI_PASSWORD } from "../constants";
+import {
+    FUSEKI_URL,
+    FUSEKI_DATASET,
+    FUSEKI_USER,
+    FUSEKI_PASSWORD,
+    ONTOLOGY_GRAPH,
+} from "../constants";
 
 // Tipler
 
@@ -301,13 +307,15 @@ export async function fetchRuleWeights(
     const values = rulesId.map((id) => `"${id}"`).join(", ");
 
     const q = `
-${PREFIXES}
-SELECT ?ruleId ?weight WHERE {
-    ?rule a pyro:RiskRule ;
-          pyro:ruleId     ?ruleId ;
-          pyro:ruleWeight ?weight .
-    FILTER(?ruleId IN (${values}))
-}`;
+            ${PREFIXES}
+            SELECT ?ruleId ?weight WHERE {
+                GRAPH <${ONTOLOGY_GRAPH}> {
+                    ?rule a pyro:RiskRule ;
+                        pyro:ruleId     ?ruleId ;
+                        pyro:ruleWeight ?weight .
+                    FILTER(?ruleId IN (${values}))
+                }
+            }`;
 
     const rows = await sparqlSelect(q);
     const map: Record<string, number> = {};
