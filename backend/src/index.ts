@@ -3,7 +3,7 @@ import { startWsGateway } from "./services/wsGateway";
 import { fetchAllZones } from "./services/weatherService";
 import { saveWeatherCache, updateZoneDrought } from "./services/weatherRepository";
 import { startHttpServer } from "./services/httpServer";
-import { loadOntology } from "./services/fusekiClient";
+import { loadOntology, clearDefaultGraph } from "./services/fusekiClient";
 
 async function runWeatherFetch() {
     console.log("[WEATHER] Guncelleniyor...");
@@ -28,6 +28,13 @@ async function main() {
     // İlk fetch hemen, sonra her saat
     runWeatherFetch();
     setInterval(runWeatherFetch, 60 * 60 * 1000);
+
+    // Fuseki default graph temizliği — her 2 saatte bir
+    // OWL named graph'a (<http://pyrosense.io/ontology>) dokunmaz
+    const CLEANUP_INTERVAL_MS = 2 * 60 * 60 * 1000;
+    setInterval(clearDefaultGraph, CLEANUP_INTERVAL_MS);
+    console.log(`[FUSEKI] Otomatik temizlik: her ${CLEANUP_INTERVAL_MS / 3600000} saatte bir`);
+
     startHttpServer();
 }
 main().catch(console.error);

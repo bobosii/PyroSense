@@ -18,6 +18,24 @@ export async function uploadTurtle(turtle: string): Promise<void> {
     });
 }
 
+// Default graph'taki sensör verilerini temizle (OWL named graph'a dokunmaz)
+export async function clearDefaultGraph(): Promise<void> {
+    const url = `${FUSEKI_URL}/${FUSEKI_DATASET}/update`;
+    try {
+        await axios.post(
+            url,
+            "update=CLEAR%20DEFAULT",
+            {
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
+            },
+        );
+        console.log("[FUSEKI] Default graph temizlendi");
+    } catch (err) {
+        console.error("[FUSEKI] Temizlik hatası:", err);
+    }
+}
+
 export async function loadOntology(): Promise<void> {
     const owlPath = path.resolve(__dirname, "../../../ontology/pyrosense-core.owl");
     const turtle = fs.readFileSync(owlPath, "utf-8");

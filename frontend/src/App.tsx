@@ -7,6 +7,9 @@ import SensorChart from "./components/SensorChart";
 import ScenarioControl from "./components/ScenarioControl";
 import { WeatherWidget } from "./components/WeatherWidget";
 import ReasoningLog from "./components/ReasoningLog";
+import AnalyticsPage from "./components/AnalyticsPage";
+
+type Page = "dashboard" | "analytics";
 
 const WS_URL = "ws://localhost:3002";
 const MAX_HISTORY = 20;
@@ -123,6 +126,7 @@ const ZONES = [
 ];
 
 export default function App() {
+    const [currentPage, setCurrentPage] = useState<Page>("dashboard");
     const [connected, setConnected] = useState(false);
     const [zoneUpdates, setZoneUpdates] = useState<ZoneUpdateMap>({});
     const [alarms, setAlarms] = useState<AlarmEntry[]>([]);
@@ -247,11 +251,21 @@ export default function App() {
                 </div>
 
                 <nav className="header-nav">
-                    <a href="#" className="active">
+                    <a
+                        href="#"
+                        className={currentPage === "dashboard" ? "active" : ""}
+                        onClick={(e) => { e.preventDefault(); setCurrentPage("dashboard"); }}
+                    >
                         Dashboard
                     </a>
                     <a href="#">Harita</a>
-                    <a href="#">Analitik</a>
+                    <a
+                        href="#"
+                        className={currentPage === "analytics" ? "active" : ""}
+                        onClick={(e) => { e.preventDefault(); setCurrentPage("analytics"); }}
+                    >
+                        Analitik
+                    </a>
                     <a href="#">Kaynaklar</a>
                 </nav>
 
@@ -272,53 +286,60 @@ export default function App() {
                 </div>
             </header>
 
-            {/* ── Main 3-Column Grid ── */}
-            <div className="main-grid">
-                <aside className="sidebar">
-                    {ZONES.map((z) => (
-                        <RiskCard
-                            key={z.zoneId}
-                            zone={z}
-                            update={zoneUpdates[z.zoneId]}
-                        />
-                    ))}
-                    <WeatherWidget />
-                </aside>
+            {/* ── Page Content ── */}
+            {currentPage === "analytics" ? (
+                <AnalyticsPage />
+            ) : (
+                <>
+                    {/* ── Main 3-Column Grid ── */}
+                    <div className="main-grid">
+                        <aside className="sidebar">
+                            {ZONES.map((z) => (
+                                <RiskCard
+                                    key={z.zoneId}
+                                    zone={z}
+                                    update={zoneUpdates[z.zoneId]}
+                                />
+                            ))}
+                            <WeatherWidget />
+                        </aside>
 
-                <section className="center-col">
-                    <ZoneMap zones={ZONES} updates={zoneUpdates} />
-                    <ScenarioControl zones={ZONES} onScenarioChange={handleScenario} />
-                </section>
+                        <section className="center-col">
+                            <ZoneMap zones={ZONES} updates={zoneUpdates} />
+                            <ScenarioControl zones={ZONES} onScenarioChange={handleScenario} />
+                        </section>
 
-                <aside className="alarm-col">
-                    <AlarmList alarms={alarms} />
-                    <ReasoningLog zoneUpdates={zoneUpdates} zones={ZONES} />
-                </aside>
-            </div>
+                        <aside className="alarm-col">
+                            <AlarmList alarms={alarms} />
+                            <ReasoningLog zoneUpdates={zoneUpdates} zones={ZONES} />
+                        </aside>
+                    </div>
 
-            {/* ── Fixed Bottom: Sensor Charts ── */}
-            <section className="chart-section">
-                <div className="chart-tabs">
-                    {ZONES.map((z) => (
-                        <button
-                            key={z.zoneId}
-                            className={`tab ${activeZone === z.zoneId ? "active" : ""}`}
-                            onClick={() => setActiveZone(z.zoneId)}
-                        >
-                            {z.shortLabel}
-                        </button>
-                    ))}
-                    <span className="chart-label">
-                        SENSOR GRAFİKLERİ &nbsp;•&nbsp; SON {MAX_HISTORY} KAYIT
-                    </span>
-                </div>
-                <div className="chart-content">
-                    <SensorChart
-                        data={history[activeZone] ?? []}
-                        zoneId={activeZoneObj?.shortLabel ?? activeZone}
-                    />
-                </div>
-            </section>
+                    {/* ── Fixed Bottom: Sensor Charts ── */}
+                    <section className="chart-section">
+                        <div className="chart-tabs">
+                            {ZONES.map((z) => (
+                                <button
+                                    key={z.zoneId}
+                                    className={`tab ${activeZone === z.zoneId ? "active" : ""}`}
+                                    onClick={() => setActiveZone(z.zoneId)}
+                                >
+                                    {z.shortLabel}
+                                </button>
+                            ))}
+                            <span className="chart-label">
+                                SENSOR GRAFİKLERİ &nbsp;•&nbsp; SON {MAX_HISTORY} KAYIT
+                            </span>
+                        </div>
+                        <div className="chart-content">
+                            <SensorChart
+                                data={history[activeZone] ?? []}
+                                zoneId={activeZoneObj?.shortLabel ?? activeZone}
+                            />
+                        </div>
+                    </section>
+                </>
+            )}
         </div>
     );
 }

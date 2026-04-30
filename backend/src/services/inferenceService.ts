@@ -17,12 +17,18 @@ export interface InferredFlag {
     weight: number;
 }
 
+export interface RuleMeta {
+    weight: number;
+    label: string;
+}
+
 type Binding = Record<string, { value: string }>;
 
 // Sabitler
 
 const PREFIXES = `
 PREFIX pyro: <http://pyrosense.io/ontology#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX ssn:  <http://www.w3.org/ns/ssn/>
 PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 `.trim();
@@ -68,7 +74,7 @@ function basePattern(readingUri: string): string {
 // Ana fonksiyon
 
 export async function inferRiskFlags(readingUri: string): Promise<InferredFlag[]> {
-    const flags: Omit<InferredFlag, "weight">[] = [];
+    const flags: { rule: string; condition: string }[] = [];
 
     // Q1: FLAME_DETECTED
     {
@@ -84,7 +90,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "FLAME_DETECTED",
-                label: "Alev Tespiti",
                 condition: `${b.ft.value} | Alev sensörü aktif sinyal verdi (${parseFloat(b.temp.value).toFixed(1)}°C)`,
             });
         }
@@ -117,7 +122,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "HIGH_DROUGHT_RISK",
-                label: "Yüksek Kuraklık Riski",
                 condition:
                     `${b.ft.value} | Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C` +
                     ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
@@ -153,7 +157,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "SMOKE_ALARM",
-                label: "Duman Alarmı",
                 condition:
                     `${b.ft.value} | Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm` +
                     ` (kuraklık çarpanı: ×${parseFloat(b.mult.value).toFixed(1)})`,
@@ -188,7 +191,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "HIGH_SPREAD_RISK",
-                label: "Yüksek Yayılım Riski",
                 condition:
                     `${b.ft.value} | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
                     ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
@@ -224,7 +226,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "EARLY_FIRE_SIGNAL",
-                label: "Erken Yangın Sinyali",
                 condition:
                     `${b.ft.value} | CO₂ ${parseFloat(b.co2.value).toFixed(0)} ppm` +
                     ` & Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm`,
@@ -246,7 +247,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "VALLEY_WIND_AMPLIFICATION",
-                label: "Vadi Rüzgar Etkisi",
                 condition:
                     `Vadi | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
                     ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
@@ -268,7 +268,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "RIDGE_WIND_EXPOSURE",
-                label: "Sırt Rüzgar Açıklığı",
                 condition: `Sırt | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s > 8 m/s`,
             });
         }
@@ -288,7 +287,6 @@ LIMIT 1`;
             const b = rows[0];
             flags.push({
                 rule: "SLOPE_FIRE_SPREAD_CRITICAL",
-                label: "Yamaç Yayılım Kritik",
                 condition:
                     `Yamaç | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
                     ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
@@ -296,33 +294,44 @@ LIMIT 1`;
             });
         }
     }
-    const weights = await fetchRuleWeights(flags.map((f) => f.rule));
-    return flags.map((f) => ({ ...f, weight: weights[f.rule] ?? 0 }));
+
+    // Tüm tetiklenen kuralların metadata'sını (ağırlık + label) OWL'dan tek sorguda al
+    const meta = await fetchRuleMeta(flags.map((f) => f.rule));
+    return flags.map((f) => ({
+        rule:      f.rule,
+        label:     meta[f.rule]?.label  ?? f.rule,
+        condition: f.condition,
+        weight:    meta[f.rule]?.weight ?? 0,
+    }));
 }
 
-export async function fetchRuleWeights(
-    rulesId: string[],
-): Promise<Record<string, number>> {
-    if (rulesId.length === 0) return {};
+export async function fetchRuleMeta(
+    ruleIds: string[],
+): Promise<Record<string, RuleMeta>> {
+    if (ruleIds.length === 0) return {};
 
-    const values = rulesId.map((id) => `"${id}"`).join(", ");
+    const values = ruleIds.map((id) => `"${id}"`).join(", ");
 
     const q = `
-            ${PREFIXES}
-            SELECT ?ruleId ?weight WHERE {
-                GRAPH <${ONTOLOGY_GRAPH}> {
-                    ?rule a pyro:RiskRule ;
-                        pyro:ruleId     ?ruleId ;
-                        pyro:ruleWeight ?weight .
-                    FILTER(?ruleId IN (${values}))
-                }
-            }`;
+        ${PREFIXES}
+        SELECT ?ruleId ?weight ?label WHERE {
+            GRAPH <${ONTOLOGY_GRAPH}> {
+                ?rule a pyro:RiskRule ;
+                      pyro:ruleId     ?ruleId ;
+                      pyro:ruleWeight ?weight ;
+                      rdfs:label      ?label .
+                FILTER(?ruleId IN (${values}))
+            }
+        }`;
 
     const rows = await sparqlSelect(q);
-    const map: Record<string, number> = {};
+    const map: Record<string, RuleMeta> = {};
 
     for (const b of rows) {
-        map[b.ruleId.value] = parseInt(b.weight.value, 10);
+        map[b.ruleId.value] = {
+            weight: parseInt(b.weight.value, 10),
+            label:  b.label.value,
+        };
     }
 
     return map;
@@ -341,30 +350,24 @@ export async function fetchRuleWeights(
 //      → hedef zone DOWNWIND_SPREAD_THREAT alır
 // ============================================================
 
-const CONE_DEG = 45;       // rüzgar yönü tolerans açısı (her iki taraf)
-const MIN_WIND_MS = 4.0;   // minimum rüzgar hızı eşiği
-const LOOKBACK_MIN = 10;   // kaç dakika geriye bakılacak
-const MAX_DIST_KM = 150;   // bu mesafenin ötesindeki zone'lar ihmal edilir
+const CONE_DEG = 45; // rüzgar yönü tolerans açısı (her iki taraf)
+const MIN_WIND_MS = 4.0; // minimum rüzgar hızı eşiği
+const LOOKBACK_MIN = 10; // kaç dakika geriye bakılacak
+const MAX_DIST_KM = 150; // bu mesafenin ötesindeki zone'lar ihmal edilir
 
 // WGS-84 bearing: kaynak → hedef (0-360°, kuzey = 0)
-function bearingDeg(
-    lat1: number, lon1: number,
-    lat2: number, lon2: number,
-): number {
+function bearingDeg(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const toRad = Math.PI / 180;
     const dLon = (lon2 - lon1) * toRad;
     const φ1 = lat1 * toRad;
     const φ2 = lat2 * toRad;
     const y = Math.sin(dLon) * Math.cos(φ2);
     const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(dLon);
-    return ((Math.atan2(y, x) / toRad) + 360) % 360;
+    return (Math.atan2(y, x) / toRad + 360) % 360;
 }
 
 // Haversine mesafe (km)
-function distanceKm(
-    lat1: number, lon1: number,
-    lat2: number, lon2: number,
-): number {
+function distanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
     const R = 6371;
     const toRad = Math.PI / 180;
     const dLat = (lat2 - lat1) * toRad;
@@ -408,8 +411,8 @@ SELECT ?zoneId ?lat ?lon WHERE {
     const rows = await sparqlSelect(q);
     return rows.map((b) => ({
         zoneId: b.zoneId.value,
-        lat:    parseFloat(b.lat.value),
-        lon:    parseFloat(b.lon.value),
+        lat: parseFloat(b.lat.value),
+        lon: parseFloat(b.lon.value),
     }));
 }
 
@@ -440,8 +443,8 @@ async function fetchHotZoneWinds(excludeZoneId: string): Promise<HotZoneWind[]> 
     return result.rows
         .filter((r: any) => r.wind_dir_deg != null && r.wind_speed_ms != null)
         .map((r: any) => ({
-            zoneId:      r.zone_id,
-            windDirDeg:  parseFloat(r.wind_dir_deg),
+            zoneId: r.zone_id,
+            windDirDeg: parseFloat(r.wind_dir_deg),
             windSpeedMs: parseFloat(r.wind_speed_ms),
         }));
 }
@@ -470,33 +473,40 @@ export async function inferDownwindThreats(
             const srcCoord = coordMap.get(hot.zoneId);
             if (!srcCoord) continue;
 
-            const dist = distanceKm(srcCoord.lat, srcCoord.lon, targetCoord.lat, targetCoord.lon);
+            const dist = distanceKm(
+                srcCoord.lat,
+                srcCoord.lon,
+                targetCoord.lat,
+                targetCoord.lon,
+            );
             if (dist > MAX_DIST_KM) continue;
 
             const bearing = bearingDeg(
-                srcCoord.lat, srcCoord.lon,
-                targetCoord.lat, targetCoord.lon,
+                srcCoord.lat,
+                srcCoord.lon,
+                targetCoord.lat,
+                targetCoord.lon,
             );
             const diff = angleDiff(hot.windDirDeg, bearing);
 
             if (diff <= CONE_DEG) {
                 threats.push(
                     `${hot.zoneId} → ${currentZoneId} ` +
-                    `| bearing=${bearing.toFixed(0)}° windDir=${hot.windDirDeg.toFixed(0)}° ` +
-                    `diff=${diff.toFixed(0)}° dist=${dist.toFixed(0)}km ` +
-                    `wind=${hot.windSpeedMs.toFixed(1)}m/s`,
+                        `| bearing=${bearing.toFixed(0)}° windDir=${hot.windDirDeg.toFixed(0)}° ` +
+                        `diff=${diff.toFixed(0)}° dist=${dist.toFixed(0)}km ` +
+                        `wind=${hot.windSpeedMs.toFixed(1)}m/s`,
                 );
             }
         }
 
         if (threats.length === 0) return null;
 
-        const weights = await fetchRuleWeights(["DOWNWIND_SPREAD_THREAT"]);
+        const meta = await fetchRuleMeta(["DOWNWIND_SPREAD_THREAT"]);
         return {
             rule:      "DOWNWIND_SPREAD_THREAT",
-            label:     "Rüzgar Altı Yayılım Tehdidi",
+            label:     meta["DOWNWIND_SPREAD_THREAT"]?.label  ?? "Rüzgar Altı Yayılım Tehdidi",
             condition: threats.join(" | "),
-            weight:    weights["DOWNWIND_SPREAD_THREAT"] ?? 25,
+            weight:    meta["DOWNWIND_SPREAD_THREAT"]?.weight ?? 25,
         };
     } catch (err) {
         console.error("[inferDownwindThreats] hata:", err);
