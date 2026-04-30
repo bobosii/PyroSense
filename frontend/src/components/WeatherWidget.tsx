@@ -19,9 +19,18 @@ const DROUGHT_META = {
 };
 
 const ZONE_NAMES: Record<string, string> = {
-    zone_a: "Düzlerçamı",
-    zone_b: "Güver Vadisi",
-    zone_c: "Güllük Dağı",
+    zone_redpine: "Kızılçam",
+    zone_blackpine: "Karaçam",
+    zone_scotspine: "Sarıçam",
+    zone_tauruscedar: "Toros Sediri",
+    zone_silverfir: "Göknar",
+    zone_orientalspruce: "D.Ladini",
+    zone_oak: "Meşe",
+    zone_orientalbeech: "D.Kayını",
+    zone_alder: "Kızılağaç",
+    zone_shrubland: "Maki",
+    zone_juniper: "Ardıç",
+    zone_mixed: "Karma",
 };
 
 export function WeatherWidget() {

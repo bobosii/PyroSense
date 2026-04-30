@@ -44,15 +44,17 @@ impl MqttPublisher {
         });
 
         // Connected event'i bekle (max 30 saniye)
-        let publisher = Self { client, connected_rx };
+        let publisher = Self {
+            client,
+            connected_rx,
+        };
         publisher.wait_for_connection(30).await;
         publisher
     }
 
     /// Bağlantı kurulana kadar bekle
     async fn wait_for_connection(&self, timeout_secs: u64) {
-        let deadline = tokio::time::Instant::now()
-            + Duration::from_secs(timeout_secs);
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(timeout_secs);
 
         loop {
             if *self.connected_rx.borrow() {

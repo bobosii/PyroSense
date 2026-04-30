@@ -1,23 +1,32 @@
 import { AlarmEntry, RiskLevel } from "../types";
 
 const LEVEL_COLORS: Record<RiskLevel, string> = {
-    LOW:      "#22c55e",
+    LOW: "#22c55e",
     MODERATE: "#f59e0b",
-    HIGH:     "#f97316",
-    EXTREME:  "#ef4444",
+    HIGH: "#f97316",
+    EXTREME: "#ef4444",
 };
 
 const ZONE_LABELS: Record<string, string> = {
-    zone_a: "Düzlerçamı",
-    zone_b: "Güver Vadisi",
-    zone_c: "Güllük Dağı",
+    zone_redpine: "Kızılçam — Muğla",
+    zone_blackpine: "Karaçam — Kastamonu",
+    zone_scotspine: "Sarıçam — Sarıkamış",
+    zone_tauruscedar: "Toros Sediri",
+    zone_silverfir: "Göknar — Bolu",
+    zone_orientalspruce: "D.Ladini — Rize",
+    zone_oak: "Meşe — Kızılcahamam",
+    zone_orientalbeech: "D.Kayını — Karabük",
+    zone_alder: "Kızılağaç — Göksu",
+    zone_shrubland: "Maki — Antalya",
+    zone_juniper: "Ardıç — Beyşehir",
+    zone_mixed: "Karma — Belgrad",
 };
 
 const LEVEL_TR: Record<RiskLevel, string> = {
-    LOW:      "Düşük",
+    LOW: "Düşük",
     MODERATE: "Orta",
-    HIGH:     "Yüksek",
-    EXTREME:  "Kritik",
+    HIGH: "Yüksek",
+    EXTREME: "Kritik",
 };
 
 function formatTime(iso: string) {
@@ -73,10 +82,7 @@ export default function AlarmList({ alarms }: Props) {
                                             {formatTime(a.openedAt)}
                                         </span>
                                     </div>
-                                    <span
-                                        className="alarm-entry-desc"
-                                        style={{ color }}
-                                    >
+                                    <span className="alarm-entry-desc" style={{ color }}>
                                         {LEVEL_TR[a.level]} Risk — Skor {a.score}
                                     </span>
                                 </div>
@@ -87,9 +93,7 @@ export default function AlarmList({ alarms }: Props) {
 
                 {/* Closed alarms */}
                 <div className="alarm-section">
-                    <div className="alarm-section-label closed-label">
-                        SON KAPANANLAR
-                    </div>
+                    <div className="alarm-section-label closed-label">SON KAPANANLAR</div>
 
                     {closed.length === 0 ? (
                         <div className="alarm-empty">Henüz kapanan alarm yok</div>

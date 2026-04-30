@@ -29,20 +29,20 @@ function getColor(update?: RiskUpdate): string {
 }
 
 export default function ZoneMap({ zones, updates }: Props) {
-    // Haritanin merkezi - 3 zone'un ortasi (Antalya bolgesi)
-    const center: [number, number] = [37.003, 30.503];
+    // Haritanin merkezi -> Turkiye'nin merkezi
+    const center: [number, number] = [39.0, 35.0];
 
     return (
         <div className="map-wrapper">
             <MapContainer
                 center={center}
-                zoom={11}
+                zoom={9}
                 style={{ height: "100%", width: "100%" }}
             >
                 {/* OpenStreetMap tile katmani */}
                 <TileLayer
-                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    attribution='&copy; <a href="https://carto.com">CARTO</a>'
+                    url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                    attribution='&copy; <a href="https://www.esri.com">Esri</a>'
                 />
                 {zones.map((z) => {
                     const update = updates[z.zoneId];

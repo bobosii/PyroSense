@@ -7,12 +7,6 @@ const LEVEL_COLORS: Record<RiskLevel, string> = {
     EXTREME: "#ef4444",
 };
 
-const ZONE_SHORT: Record<string, string> = {
-    zone_a: "Z1",
-    zone_b: "Z2",
-    zone_c: "Z3",
-};
-
 const WEIGHT_COLOR = (w: number): string => {
     return w >= 50 ? "#ef4444" : w >= 25 ? "#f97316" : w >= 15 ? "#f59e0b" : "#64748b";
 };
@@ -74,8 +68,9 @@ export default function ReasoningLog({ zoneUpdates, zones }: Props) {
                             </div>
                             <div className="reasoning-condition">{e.condition}</div>
                             <div className="reasoning-zone-time">
-                                {ZONE_SHORT[e.zoneId] ?? e.zoneId.toUpperCase()} •{" "}
-                                {e.time}
+                                {zones.find((z) => z.zoneId === e.zoneId)?.shortLabel ??
+                                    e.zoneId}{" "}
+                                • {e.time}
                             </div>
                         </div>
                     ))
