@@ -7,7 +7,7 @@
 //  Senaryo değiştirme (HTTP API):
 //    curl -X POST http://localhost:8090/scenario \
 //         -H "Content-Type: application/json" \
-//         -d '{"scenario": "prefire", "zone_id": "zone_a"}'
+//         -d '{"scenario": "prefire", "zone_id": "zone_redpine"}'
 //
 //  Tüm senaryo geçişleri:
 //    normal | prefire | activefire | sensorFault

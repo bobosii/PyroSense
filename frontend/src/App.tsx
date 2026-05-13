@@ -254,7 +254,10 @@ export default function App() {
                     <a
                         href="#"
                         className={currentPage === "dashboard" ? "active" : ""}
-                        onClick={(e) => { e.preventDefault(); setCurrentPage("dashboard"); }}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage("dashboard");
+                        }}
                     >
                         Dashboard
                     </a>
@@ -262,7 +265,10 @@ export default function App() {
                     <a
                         href="#"
                         className={currentPage === "analytics" ? "active" : ""}
-                        onClick={(e) => { e.preventDefault(); setCurrentPage("analytics"); }}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage("analytics");
+                        }}
                     >
                         Analitik
                     </a>
@@ -306,7 +312,10 @@ export default function App() {
 
                         <section className="center-col">
                             <ZoneMap zones={ZONES} updates={zoneUpdates} />
-                            <ScenarioControl zones={ZONES} onScenarioChange={handleScenario} />
+                            <ScenarioControl
+                                zones={ZONES}
+                                onScenarioChange={handleScenario}
+                            />
                         </section>
 
                         <aside className="alarm-col">

@@ -31,9 +31,13 @@ const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
     zone_mixed: { lat: 41.1944, lon: 28.9514 }, // Karma — Belgrad Ormanı/İstanbul
 };
 
+// Eşikler OWL ontolojisi (pyrosense-core.owl) ile hizalıdır:
+//   ExtremeDrought  → < 2mm / 30 gün
+//   ModerateDrought → 2–10mm / 30 gün
+//   NormalMoisture  → >= 10mm / 30 gün
 function calcDroughtClass(precipitation30d: number): WeatherData["droughtClass"] {
-    if (precipitation30d < 10) return "ExtremeDrought";
-    if (precipitation30d < 40) return "ModerateDrought";
+    if (precipitation30d < 2)  return "ExtremeDrought";
+    if (precipitation30d < 10) return "ModerateDrought";
     return "NormalMoisture";
 }
 

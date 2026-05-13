@@ -74,30 +74,16 @@ function basePattern(readingUri: string): string {
 // Ana fonksiyon
 
 export async function inferRiskFlags(readingUri: string): Promise<InferredFlag[]> {
-    const flags: { rule: string; condition: string }[] = [];
-
-    // Q1: FLAME_DETECTED
-    {
-        const q = `
+    // Q1–Q8: tüm sorgular paralel olarak başlatılır
+    const q1 = `
 ${PREFIXES}
 SELECT ?ft ?temp WHERE {
     ${basePattern(readingUri)}
     FILTER(?flame = true)
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "FLAME_DETECTED",
-                condition: `${b.ft.value} | Alev sensörü aktif sinyal verdi (${parseFloat(b.temp.value).toFixed(1)}°C)`,
-            });
-        }
-    }
 
-    // Q2: HIGH_DROUGHT_RISK
-    {
-        const q = `
+    const q2 = `
 ${PREFIXES}
 SELECT ?ft ?temp ?hum ?mult WHERE {
     ${basePattern(readingUri)}
@@ -117,22 +103,8 @@ SELECT ?ft ?temp ?hum ?mult WHERE {
     )
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "HIGH_DROUGHT_RISK",
-                condition:
-                    `${b.ft.value} | Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C` +
-                    ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
-                    ` (kuraklık çarpanı: ×${parseFloat(b.mult.value).toFixed(1)})`,
-            });
-        }
-    }
 
-    // Q3: SMOKE_ALARM
-    {
-        const q = `
+    const q3 = `
 ${PREFIXES}
 SELECT ?ft ?smoke ?mult WHERE {
     ${basePattern(readingUri)}
@@ -152,21 +124,8 @@ SELECT ?ft ?smoke ?mult WHERE {
     )
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "SMOKE_ALARM",
-                condition:
-                    `${b.ft.value} | Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm` +
-                    ` (kuraklık çarpanı: ×${parseFloat(b.mult.value).toFixed(1)})`,
-            });
-        }
-    }
 
-    // Q4: HIGH_SPREAD_RISK
-    {
-        const q = `
+    const q4 = `
 ${PREFIXES}
 SELECT ?ft ?wind ?temp ?mult WHERE {
     ${basePattern(readingUri)}
@@ -186,22 +145,9 @@ SELECT ?ft ?wind ?temp ?mult WHERE {
     )
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "HIGH_SPREAD_RISK",
-                condition:
-                    `${b.ft.value} | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
-                    ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
-            });
-        }
-    }
 
-    // Q5: EARLY_FIRE_SIGNAL
-    // CO₂ + duman kombinasyonu — droughtClass çarpanı uygulanmaz (sensör doğruluğu)
-    {
-        const q = `
+    // Q5: CO₂ + duman kombinasyonu — droughtClass çarpanı uygulanmaz
+    const q5 = `
 ${PREFIXES}
 SELECT ?ft ?co2 ?smoke WHERE {
     ${basePattern(readingUri)}
@@ -221,81 +167,132 @@ SELECT ?ft ?co2 ?smoke WHERE {
     )
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "EARLY_FIRE_SIGNAL",
-                condition:
-                    `${b.ft.value} | CO₂ ${parseFloat(b.co2.value).toFixed(0)} ppm` +
-                    ` & Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm`,
-            });
-        }
-    }
 
-    // Q6: VALLEY_WIND_AMPLIFICATION
-    {
-        const q = `
+    const q6 = `
 ${PREFIXES}
 SELECT ?wind ?temp WHERE {
     ${basePattern(readingUri)}
     FILTER(?topo = "Valley" && ?wind > 6.0 && ?temp > 25.0)
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "VALLEY_WIND_AMPLIFICATION",
-                condition:
-                    `Vadi | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
-                    ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
-            });
-        }
-    }
 
-    // Q7: RIDGE_WIND_EXPOSURE
-    {
-        const q = `
+    const q7 = `
 ${PREFIXES}
 SELECT ?wind WHERE {
     ${basePattern(readingUri)}
     FILTER(?topo = "Ridge" && ?wind > 8.0)
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "RIDGE_WIND_EXPOSURE",
-                condition: `Sırt | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s > 8 m/s`,
-            });
-        }
-    }
 
-    // Q8: SLOPE_FIRE_SPREAD_CRITICAL
-    {
-        const q = `
+    const q8 = `
 ${PREFIXES}
 SELECT ?wind ?hum ?temp WHERE {
     ${basePattern(readingUri)}
     FILTER(?topo = "Slope" && ?wind > 5.0 && ?hum < 30.0 && ?temp > 30.0)
 }
 LIMIT 1`;
-        const rows = await sparqlSelect(q);
-        if (rows.length > 0) {
-            const b = rows[0];
-            flags.push({
-                rule: "SLOPE_FIRE_SPREAD_CRITICAL",
-                condition:
-                    `Yamaç | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
-                    ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
-                    ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
-            });
-        }
+
+    // 8 sorguyu aynı anda Fuseki'ye gönder
+    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+        sparqlSelect(q1),
+        sparqlSelect(q2),
+        sparqlSelect(q3),
+        sparqlSelect(q4),
+        sparqlSelect(q5),
+        sparqlSelect(q6),
+        sparqlSelect(q7),
+        sparqlSelect(q8),
+    ]);
+
+    const flags: { rule: string; condition: string }[] = [];
+
+    // Q1: FLAME_DETECTED
+    if (r1.length > 0) {
+        const b = r1[0];
+        flags.push({
+            rule: "FLAME_DETECTED",
+            condition: `${b.ft.value} | Alev sensörü aktif sinyal verdi (${parseFloat(b.temp.value).toFixed(1)}°C)`,
+        });
     }
 
-    // Tüm tetiklenen kuralların metadata'sını (ağırlık + label) OWL'dan tek sorguda al
+    // Q2: HIGH_DROUGHT_RISK
+    if (r2.length > 0) {
+        const b = r2[0];
+        flags.push({
+            rule: "HIGH_DROUGHT_RISK",
+            condition:
+                `${b.ft.value} | Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C` +
+                ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
+                ` (kuraklık çarpanı: ×${parseFloat(b.mult.value).toFixed(1)})`,
+        });
+    }
+
+    // Q3: SMOKE_ALARM
+    if (r3.length > 0) {
+        const b = r3[0];
+        flags.push({
+            rule: "SMOKE_ALARM",
+            condition:
+                `${b.ft.value} | Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm` +
+                ` (kuraklık çarpanı: ×${parseFloat(b.mult.value).toFixed(1)})`,
+        });
+    }
+
+    // Q4: HIGH_SPREAD_RISK
+    if (r4.length > 0) {
+        const b = r4[0];
+        flags.push({
+            rule: "HIGH_SPREAD_RISK",
+            condition:
+                `${b.ft.value} | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
+                ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
+        });
+    }
+
+    // Q5: EARLY_FIRE_SIGNAL
+    if (r5.length > 0) {
+        const b = r5[0];
+        flags.push({
+            rule: "EARLY_FIRE_SIGNAL",
+            condition:
+                `${b.ft.value} | CO₂ ${parseFloat(b.co2.value).toFixed(0)} ppm` +
+                ` & Duman ${parseFloat(b.smoke.value).toFixed(0)} ppm`,
+        });
+    }
+
+    // Q6: VALLEY_WIND_AMPLIFICATION
+    if (r6.length > 0) {
+        const b = r6[0];
+        flags.push({
+            rule: "VALLEY_WIND_AMPLIFICATION",
+            condition:
+                `Vadi | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
+                ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
+        });
+    }
+
+    // Q7: RIDGE_WIND_EXPOSURE
+    if (r7.length > 0) {
+        const b = r7[0];
+        flags.push({
+            rule: "RIDGE_WIND_EXPOSURE",
+            condition: `Sırt | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s > 8 m/s`,
+        });
+    }
+
+    // Q8: SLOPE_FIRE_SPREAD_CRITICAL
+    if (r8.length > 0) {
+        const b = r8[0];
+        flags.push({
+            rule: "SLOPE_FIRE_SPREAD_CRITICAL",
+            condition:
+                `Yamaç | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
+                ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
+                ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
+        });
+    }
+
+    // Tetiklenen kuralların metadata'sını (ağırlık + label) OWL'dan tek sorguda al
     const meta = await fetchRuleMeta(flags.map((f) => f.rule));
     return flags.map((f) => ({
         rule:      f.rule,

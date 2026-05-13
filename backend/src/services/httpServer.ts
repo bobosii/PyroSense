@@ -81,9 +81,9 @@ export function startHttpServer(): void {
                     WHERE scenario = 'prefire' AND level = 'LOW'
                 ) AS danger_fn,
 
-                -- Yanlış Alarm (normal → LOW beklenir)
+                -- Yanlış Alarm: activefire olmayan senaryoda HIGH/EXTREME tetiklenmesi
                 COUNT(*) FILTER (
-                    WHERE scenario = 'normal' AND level IN ('MODERATE', 'HIGH', 'EXTREME')
+                    WHERE scenario != 'activefire' AND level IN ('HIGH', 'EXTREME')
                 ) AS false_positive,
                 COUNT(*) FILTER (
                     WHERE scenario = 'normal' AND level = 'LOW'
