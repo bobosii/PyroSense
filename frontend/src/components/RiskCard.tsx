@@ -1,20 +1,20 @@
 import { RiskUpdate, RiskLevel } from "../types";
 
 const LEVEL_META: Record<RiskLevel, { color: string; label: string; filled: boolean }> = {
-    LOW:      { color: "#22c55e", label: "DÜŞÜK",  filled: false },
-    MODERATE: { color: "#f59e0b", label: "ORTA",   filled: false },
-    HIGH:     { color: "#f97316", label: "YÜKSEK", filled: true  },
-    EXTREME:  { color: "#ef4444", label: "KRİTİK", filled: true  },
+    LOW: { color: "#22c55e", label: "DÜŞÜK", filled: false },
+    MODERATE: { color: "#f59e0b", label: "ORTA", filled: false },
+    HIGH: { color: "#f97316", label: "YÜKSEK", filled: true },
+    EXTREME: { color: "#ef4444", label: "KRİTİK", filled: true },
 };
 
 const FLAG_LABELS: Record<string, string> = {
-    FLAME_DETECTED:             "🔥 Alev Tespiti",
-    SMOKE_ALARM:                "💨 Duman Alarmı",
-    HIGH_DROUGHT_RISK:          "🌵 Kurak Koşul",
-    HIGH_SPREAD_RISK:           "💨 Yayılım Riski",
-    EARLY_FIRE_SIGNAL:          "⚠️ Erken Sinyal",
-    VALLEY_WIND_AMPLIFICATION:  "🌬️ Vadi Rüzgarı",
-    RIDGE_WIND_EXPOSURE:        "🌬️ Sırt Açıklığı",
+    FLAME_DETECTED: "🔥 Alev Tespiti",
+    SMOKE_ALARM: "💨 Duman Alarmı",
+    HIGH_DROUGHT_RISK: "🌵 Kurak Koşul",
+    HIGH_SPREAD_RISK: "💨 Yayılım Riski",
+    EARLY_FIRE_SIGNAL: "⚠️ Erken Sinyal",
+    VALLEY_WIND_AMPLIFICATION: "🌬️ Vadi Rüzgarı",
+    RIDGE_WIND_EXPOSURE: "🌬️ Sırt Açıklığı",
     SLOPE_FIRE_SPREAD_CRITICAL: "⛰️ Yamaç Kritik",
 };
 

@@ -17,25 +17,32 @@ interface Props {
 
 export default function SensorChart({ data, zoneId }: Props) {
     if (data.length === 0) {
-        return (
-            <div className="chart-empty">
-                {zoneId} — veri bekleniyor…
-            </div>
-        );
+        return <div className="chart-empty">{zoneId} — veri bekleniyor…</div>;
     }
 
     return (
         <div className="chart-wrapper">
             <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data} margin={{ top: 4, right: 16, left: -20, bottom: 0 }}>
+                <LineChart
+                    data={data}
+                    margin={{ top: 4, right: 16, left: -20, bottom: 0 }}
+                >
                     <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
                     <XAxis
                         dataKey="time"
-                        tick={{ fill: "#64748b", fontSize: 10, fontFamily: "Space Grotesk" }}
+                        tick={{
+                            fill: "#64748b",
+                            fontSize: 10,
+                            fontFamily: "Space Grotesk",
+                        }}
                         interval="preserveStartEnd"
                     />
                     <YAxis
-                        tick={{ fill: "#64748b", fontSize: 10, fontFamily: "Space Grotesk" }}
+                        tick={{
+                            fill: "#64748b",
+                            fontSize: 10,
+                            fontFamily: "Space Grotesk",
+                        }}
                         width={40}
                     />
                     <Tooltip

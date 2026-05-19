@@ -48,7 +48,14 @@ function MetricBar({ value, color }: { value: number | null; color: string }) {
                     }}
                 />
             </div>
-            <span style={{ color, fontFamily: "var(--font-data)", fontSize: 13, minWidth: 38 }}>
+            <span
+                style={{
+                    color,
+                    fontFamily: "var(--font-data)",
+                    fontSize: 13,
+                    minWidth: 38,
+                }}
+            >
                 %{pct}
             </span>
         </div>
@@ -80,8 +87,12 @@ function StatCard({
             }}
         >
             <div>
-                <div style={{ color: "var(--text)", fontWeight: 600, fontSize: 13 }}>{title}</div>
-                <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 2 }}>{subtitle}</div>
+                <div style={{ color: "var(--text)", fontWeight: 600, fontSize: 13 }}>
+                    {title}
+                </div>
+                <div style={{ color: "var(--text-dim)", fontSize: 11, marginTop: 2 }}>
+                    {subtitle}
+                </div>
             </div>
             {children}
         </div>
@@ -90,19 +101,32 @@ function StatCard({
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div
+            style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+            }}
+        >
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{label}</span>
-            <span style={{ color: "var(--text)", fontFamily: "var(--font-data)", fontSize: 13 }}>
+            <span
+                style={{
+                    color: "var(--text)",
+                    fontFamily: "var(--font-data)",
+                    fontSize: 13,
+                }}
+            >
                 {value}
             </span>
         </div>
     );
 }
 
-export default function AnalyticsPage() {
+export default function AnalyticsPage({ refreshTick = 0 }: { refreshTick?: number }) {
     const [metrics, setMetrics] = useState<ValidationMetrics | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
 
     const load = () => {
         setLoading(true);
@@ -111,14 +135,24 @@ export default function AnalyticsPage() {
             .then((data) => {
                 setMetrics(data);
                 setError(null);
+                setLastRefreshed(new Date());
             })
             .catch(() => setError("Metrikler yüklenemedi"))
             .finally(() => setLoading(false));
     };
 
+    // Initial load
     useEffect(() => {
         load();
     }, []);
+
+    // Auto-refresh: debounce incoming ticks so a burst of zone updates
+    // (all 12 zones arrive within ~1s) triggers only a single fetch.
+    useEffect(() => {
+        if (refreshTick === 0) return; // skip the mount call — handled above
+        const timer = setTimeout(load, 2000);
+        return () => clearTimeout(timer);
+    }, [refreshTick]);
 
     return (
         <div
@@ -156,29 +190,46 @@ export default function AnalyticsPage() {
                             fontSize: 12,
                         }}
                     >
-                        Simülatör senaryo ground-truth'u ile ontoloji çıkarım sonuçları karşılaştırması
+                        Simülatör senaryo ground-truth'u ile ontoloji çıkarım sonuçları
+                        karşılaştırması
                     </p>
                 </div>
-                <button
-                    onClick={load}
-                    style={{
-                        background: "var(--bg-card)",
-                        border: "1px solid var(--border)",
-                        color: "var(--text-muted)",
-                        borderRadius: 6,
-                        padding: "6px 14px",
-                        cursor: "pointer",
-                        fontSize: 12,
-                    }}
-                >
-                    Yenile
-                </button>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                    <button
+                        onClick={load}
+                        style={{
+                            background: "var(--bg-card)",
+                            border: "1px solid var(--border)",
+                            color: "var(--text-muted)",
+                            borderRadius: 6,
+                            padding: "6px 14px",
+                            cursor: "pointer",
+                            fontSize: 12,
+                        }}
+                    >
+                        Yenile
+                    </button>
+                    {lastRefreshed && (
+                        <span style={{ color: "var(--text-dim)", fontSize: 10 }}>
+                            Son güncelleme:{" "}
+                            {lastRefreshed.toLocaleTimeString("tr-TR", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                second: "2-digit",
+                            })}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {loading && (
-                <div style={{ color: "var(--text-dim)", fontSize: 13 }}>Yükleniyor...</div>
+                <div style={{ color: "var(--text-dim)", fontSize: 13 }}>
+                    Yükleniyor...
+                </div>
             )}
-            {error && <div style={{ color: "var(--risk-extreme)", fontSize: 13 }}>{error}</div>}
+            {error && (
+                <div style={{ color: "var(--risk-extreme)", fontSize: 13 }}>{error}</div>
+            )}
 
             {metrics && (
                 <>
@@ -223,19 +274,43 @@ export default function AnalyticsPage() {
                             subtitle="activefire senaryosu → HIGH/EXTREME beklenir"
                             accent="var(--risk-extreme)"
                         >
-                            <Row label="Doğru Pozitif (TP)" value={metrics.activeFireDetection.truePositive} />
-                            <Row label="Yanlış Negatif (FN)" value={metrics.activeFireDetection.falseNegative} />
+                            <Row
+                                label="Doğru Pozitif (TP)"
+                                value={metrics.activeFireDetection.truePositive}
+                            />
+                            <Row
+                                label="Yanlış Negatif (FN)"
+                                value={metrics.activeFireDetection.falseNegative}
+                            />
                             <div style={{ marginTop: 4 }}>
-                                <div style={{ color: "var(--text-dim)", fontSize: 11, marginBottom: 4 }}>
+                                <div
+                                    style={{
+                                        color: "var(--text-dim)",
+                                        fontSize: 11,
+                                        marginBottom: 4,
+                                    }}
+                                >
                                     Precision
                                 </div>
-                                <MetricBar value={metrics.activeFireDetection.precision} color="var(--risk-extreme)" />
+                                <MetricBar
+                                    value={metrics.activeFireDetection.precision}
+                                    color="var(--risk-extreme)"
+                                />
                             </div>
                             <div>
-                                <div style={{ color: "var(--text-dim)", fontSize: 11, marginBottom: 4 }}>
+                                <div
+                                    style={{
+                                        color: "var(--text-dim)",
+                                        fontSize: 11,
+                                        marginBottom: 4,
+                                    }}
+                                >
                                     Recall (Sensitivity)
                                 </div>
-                                <MetricBar value={metrics.activeFireDetection.recall} color="var(--risk-high)" />
+                                <MetricBar
+                                    value={metrics.activeFireDetection.recall}
+                                    color="var(--risk-high)"
+                                />
                             </div>
                         </StatCard>
 
@@ -245,13 +320,28 @@ export default function AnalyticsPage() {
                             subtitle="prefire senaryosu → MODERATE+ beklenir"
                             accent="var(--risk-high)"
                         >
-                            <Row label="Doğru Pozitif (TP)" value={metrics.dangerDetection.truePositive} />
-                            <Row label="Yanlış Negatif (FN)" value={metrics.dangerDetection.falseNegative} />
+                            <Row
+                                label="Doğru Pozitif (TP)"
+                                value={metrics.dangerDetection.truePositive}
+                            />
+                            <Row
+                                label="Yanlış Negatif (FN)"
+                                value={metrics.dangerDetection.falseNegative}
+                            />
                             <div style={{ marginTop: 4 }}>
-                                <div style={{ color: "var(--text-dim)", fontSize: 11, marginBottom: 4 }}>
+                                <div
+                                    style={{
+                                        color: "var(--text-dim)",
+                                        fontSize: 11,
+                                        marginBottom: 4,
+                                    }}
+                                >
                                     Recall
                                 </div>
-                                <MetricBar value={metrics.dangerDetection.recall} color="var(--risk-high)" />
+                                <MetricBar
+                                    value={metrics.dangerDetection.recall}
+                                    color="var(--risk-high)"
+                                />
                             </div>
                         </StatCard>
 
@@ -261,13 +351,28 @@ export default function AnalyticsPage() {
                             subtitle="normal senaryosu → LOW beklenir"
                             accent="var(--risk-low)"
                         >
-                            <Row label="Doğru Negatif (TN)" value={metrics.normalConditions.trueNegative} />
-                            <Row label="Yanlış Pozitif (FP)" value={metrics.normalConditions.falsePositive} />
+                            <Row
+                                label="Doğru Negatif (TN)"
+                                value={metrics.normalConditions.trueNegative}
+                            />
+                            <Row
+                                label="Yanlış Pozitif (FP)"
+                                value={metrics.normalConditions.falsePositive}
+                            />
                             <div style={{ marginTop: 4 }}>
-                                <div style={{ color: "var(--text-dim)", fontSize: 11, marginBottom: 4 }}>
+                                <div
+                                    style={{
+                                        color: "var(--text-dim)",
+                                        fontSize: 11,
+                                        marginBottom: 4,
+                                    }}
+                                >
                                     Specificity
                                 </div>
-                                <MetricBar value={metrics.normalConditions.specificity} color="var(--risk-low)" />
+                                <MetricBar
+                                    value={metrics.normalConditions.specificity}
+                                    color="var(--risk-low)"
+                                />
                             </div>
                         </StatCard>
 
@@ -277,14 +382,25 @@ export default function AnalyticsPage() {
                             subtitle="sensorFault → HIGH/EXTREME olmamalı"
                             accent="var(--secondary)"
                         >
-                            <Row label="Yanlış Alarm (hata)" value={metrics.sensorFault.falseAlarms} />
+                            <Row
+                                label="Yanlış Alarm (hata)"
+                                value={metrics.sensorFault.falseAlarms}
+                            />
                             <Row
                                 label="Doğru Bastırılan"
                                 value={metrics.sensorFault.correctlySuppressed}
                             />
-                            {metrics.sensorFault.falseAlarms + metrics.sensorFault.correctlySuppressed > 0 && (
+                            {metrics.sensorFault.falseAlarms +
+                                metrics.sensorFault.correctlySuppressed >
+                                0 && (
                                 <div style={{ marginTop: 4 }}>
-                                    <div style={{ color: "var(--text-dim)", fontSize: 11, marginBottom: 4 }}>
+                                    <div
+                                        style={{
+                                            color: "var(--text-dim)",
+                                            fontSize: 11,
+                                            marginBottom: 4,
+                                        }}
+                                    >
                                         Doğru Bastırma Oranı
                                     </div>
                                     <MetricBar
@@ -313,10 +429,13 @@ export default function AnalyticsPage() {
                             lineHeight: 1.6,
                         }}
                     >
-                        <strong style={{ color: "var(--text-muted)" }}>Ground Truth:</strong>{" "}
-                        Simülatör her okumaya senaryo etiketi yazar (normal / prefire / activefire / sensorFault).
-                        Ontoloji motoru bu etiketlere bakmaz — yalnızca ham sensör değerleri üzerinde SPARQL
-                        çıkarımı yapar. Bu tablo ikisinin örtüşme oranını gösterir.
+                        <strong style={{ color: "var(--text-muted)" }}>
+                            Ground Truth:
+                        </strong>{" "}
+                        Simülatör her okumaya senaryo etiketi yazar (normal / prefire /
+                        activefire / sensorFault). Ontoloji motoru bu etiketlere bakmaz —
+                        yalnızca ham sensör değerleri üzerinde SPARQL çıkarımı yapar. Bu
+                        tablo ikisinin örtüşme oranını gösterir.
                     </div>
                 </>
             )}

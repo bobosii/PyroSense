@@ -38,6 +38,7 @@ services:
     environment:
       - ADMIN_PASSWORD=pyrosense123
       - JVM_ARGS=-Xmx2g -Xms512m
+      - FUSEKI_DATASET=pyrosense
     volumes:
       - fuseki_data:/fuseki
       - ./ontology:/staging/ontology

@@ -51,7 +51,7 @@ export function startHttpServer(): void {
             const result = await db.query(
                 `SELECT DISTINCT ON (zone_id) zone_id, level, message, created_at
                  FROM alarms WHERE status = 'OPEN'
-                 ORDER BY created_at DESC`,
+                 ORDER BY zone_id, created_at DESC`,
             );
             res.json(result.rows);
         } catch (err) {

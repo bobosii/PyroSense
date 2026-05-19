@@ -2,10 +2,10 @@ import { useState } from "react";
 import { ScenarioName } from "../types";
 
 const SCENARIOS: { value: ScenarioName; label: string }[] = [
-    { value: "normal",      label: "Normal İzleme"    },
-    { value: "prefire",     label: "Yangın Öncesi"    },
-    { value: "activefire",  label: "Aktif Yangın"     },
-    { value: "sensorFault", label: "Sensör Arızası"   },
+    { value: "normal", label: "Normal İzleme" },
+    { value: "prefire", label: "Yangın Öncesi" },
+    { value: "activefire", label: "Aktif Yangın" },
+    { value: "sensorFault", label: "Sensör Arızası" },
 ];
 
 interface ZoneInfo {
@@ -67,7 +67,10 @@ export default function ScenarioControl({ zones, onScenarioChange }: Props) {
                             onClick={() => handleApply(z.zoneId)}
                         >
                             {loading[z.zoneId] ? (
-                                <>Uygulanıyor <span className="scenario-spinner">↻</span></>
+                                <>
+                                    Uygulanıyor{" "}
+                                    <span className="scenario-spinner">↻</span>
+                                </>
                             ) : (
                                 "Uygula"
                             )}

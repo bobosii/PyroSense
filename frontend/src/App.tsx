@@ -132,6 +132,7 @@ export default function App() {
     const [alarms, setAlarms] = useState<AlarmEntry[]>([]);
     const [history, setHistory] = useState<Record<string, SensorDataPoint[]>>({});
     const [activeZone, setActiveZone] = useState("zone_redpine");
+    const [refreshTick, setRefreshTick] = useState(0);
 
     useEffect(() => {
         let ws: WebSocket;
@@ -151,6 +152,7 @@ export default function App() {
                 if (data.type !== "RISK_UPDATE") return;
 
                 setZoneUpdates((prev) => ({ ...prev, [data.zoneId]: data }));
+                setRefreshTick((t) => t + 1);
 
                 setHistory((prev) => {
                     const zoneHist = prev[data.zoneId] ?? [];
@@ -208,7 +210,7 @@ export default function App() {
             .then((r) => r.json())
             .then((rows: any[]) => {
                 const loaded: AlarmEntry[] = rows.map((r) => ({
-                    id: `pg-${r.zoneId}-${r.created_at}`,
+                    id: `pg-${r.zone_id}-${r.created_at}`,
                     zoneId: r.zone_id,
                     level: r.level,
                     score: 0,
@@ -294,7 +296,7 @@ export default function App() {
 
             {/* ── Page Content ── */}
             {currentPage === "analytics" ? (
-                <AnalyticsPage />
+                <AnalyticsPage refreshTick={refreshTick} />
             ) : (
                 <>
                     {/* ── Main 3-Column Grid ── */}

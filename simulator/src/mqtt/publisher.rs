@@ -83,7 +83,7 @@ impl MqttPublisher {
 
         match self
             .client
-            .publish(topic, QoS::AtLeastOnce, false, payload.as_bytes())
+            .publish(topic, QoS::AtMostOnce, false, payload.as_bytes())
             .await
         {
             Ok(_) => {

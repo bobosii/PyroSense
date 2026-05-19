@@ -20,7 +20,12 @@ async function runWeatherFetch() {
 async function main() {
     console.log("Pyrosense backend is running now");
 
-    await loadOntology();
+    try {
+        await loadOntology();
+    } catch (err) {
+        console.error("[FUSEKI] Ontoloji yüklenemedi, backend devam ediyor:", err);
+        // Ontoloji olmadan da backend çalışabilir (SPARQL sorguları boş döner)
+    }
 
     startWsGateway();
     startMqttConsumer();
@@ -33,7 +38,9 @@ async function main() {
     // OWL named graph'a (<http://pyrosense.io/ontology>) dokunmaz
     const CLEANUP_INTERVAL_MS = 2 * 60 * 60 * 1000;
     setInterval(clearDefaultGraph, CLEANUP_INTERVAL_MS);
-    console.log(`[FUSEKI] Otomatik temizlik: her ${CLEANUP_INTERVAL_MS / 3600000} saatte bir`);
+    console.log(
+        `[FUSEKI] Otomatik temizlik: her ${CLEANUP_INTERVAL_MS / 3600000} saatte bir`,
+    );
 
     startHttpServer();
 }

@@ -36,7 +36,7 @@ const ZONE_COORDS: Record<string, { lat: number; lon: number }> = {
 //   ModerateDrought → 2–10mm / 30 gün
 //   NormalMoisture  → >= 10mm / 30 gün
 function calcDroughtClass(precipitation30d: number): WeatherData["droughtClass"] {
-    if (precipitation30d < 2)  return "ExtremeDrought";
+    if (precipitation30d < 2) return "ExtremeDrought";
     if (precipitation30d < 10) return "ModerateDrought";
     return "NormalMoisture";
 }

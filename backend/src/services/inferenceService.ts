@@ -22,6 +22,24 @@ export interface RuleMeta {
     label: string;
 }
 
+// OWL named graph sorgusunun başarısız olması durumunda kullanılan statik fallback.
+// Değerler pyrosense-core.owl'daki pyro:ruleWeight değerleriyle birebir eşleşir.
+//
+// Eklenmesinin sebebi ise flaglerin agirliklari gelmez ise
+// risk scorelarini yine de hesaplamayi saglamak.
+//
+const RULE_META_STATIC: Record<string, RuleMeta> = {
+    FLAME_DETECTED: { weight: 65, label: "Alev Tespiti" },
+    SMOKE_ALARM: { weight: 35, label: "Duman Alarmı" },
+    SLOPE_FIRE_SPREAD_CRITICAL: { weight: 30, label: "Yamaç Yayılım Kritik" },
+    EARLY_FIRE_SIGNAL: { weight: 25, label: "Erken Yangın Sinyali" },
+    DOWNWIND_SPREAD_THREAT: { weight: 25, label: "Rüzgar Altı Yayılım Tehdidi" },
+    HIGH_DROUGHT_RISK: { weight: 20, label: "Yüksek Kuraklık Riski" },
+    HIGH_SPREAD_RISK: { weight: 20, label: "Yüksek Yayılım Riski" },
+    VALLEY_WIND_AMPLIFICATION: { weight: 15, label: "Vadi Rüzgar Etkisi" },
+    RIDGE_WIND_EXPOSURE: { weight: 10, label: "Sırt Rüzgar Açıklığı" },
+};
+
 type Binding = Record<string, { value: string }>;
 
 // Sabitler
@@ -292,13 +310,14 @@ LIMIT 1`;
         });
     }
 
-    // Tetiklenen kuralların metadata'sını (ağırlık + label) OWL'dan tek sorguda al
+    // Tetiklenen kuralların metadata'sını (ağırlık + label) OWL named graph'tan al.
+    // Fuseki named graph boşsa veya sorgu başarısız olursa RULE_META_STATIC fallback devreye girer.
     const meta = await fetchRuleMeta(flags.map((f) => f.rule));
     return flags.map((f) => ({
-        rule:      f.rule,
-        label:     meta[f.rule]?.label  ?? f.rule,
+        rule: f.rule,
+        label: meta[f.rule]?.label ?? RULE_META_STATIC[f.rule]?.label ?? f.rule,
         condition: f.condition,
-        weight:    meta[f.rule]?.weight ?? 0,
+        weight: meta[f.rule]?.weight ?? RULE_META_STATIC[f.rule]?.weight ?? 0,
     }));
 }
 
@@ -327,7 +346,7 @@ export async function fetchRuleMeta(
     for (const b of rows) {
         map[b.ruleId.value] = {
             weight: parseInt(b.weight.value, 10),
-            label:  b.label.value,
+            label: b.label.value,
         };
     }
 
@@ -500,10 +519,10 @@ export async function inferDownwindThreats(
 
         const meta = await fetchRuleMeta(["DOWNWIND_SPREAD_THREAT"]);
         return {
-            rule:      "DOWNWIND_SPREAD_THREAT",
-            label:     meta["DOWNWIND_SPREAD_THREAT"]?.label  ?? "Rüzgar Altı Yayılım Tehdidi",
+            rule: "DOWNWIND_SPREAD_THREAT",
+            label: meta["DOWNWIND_SPREAD_THREAT"]?.label ?? "Rüzgar Altı Yayılım Tehdidi",
             condition: threats.join(" | "),
-            weight:    meta["DOWNWIND_SPREAD_THREAT"]?.weight ?? 25,
+            weight: meta["DOWNWIND_SPREAD_THREAT"]?.weight ?? 25,
         };
     } catch (err) {
         console.error("[inferDownwindThreats] hata:", err);
