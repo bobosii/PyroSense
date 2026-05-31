@@ -1,4 +1,4 @@
-import { getMongo } from "./mongoClient";
+import { getDb } from "./database";
 
 export type AlarmEventType = "OPENED" | "CLOSED";
 
@@ -8,16 +8,16 @@ export interface AlarmEvent {
     level: string;
     flags: string[];
     score: number;
-    timestamp: Date;
 }
 
 export async function logAlarmEvent(event: AlarmEvent): Promise<void> {
-    const db = await getMongo();
-    await db.collection("alarm_events").insertOne({
-        ...event,
-        timestamp: new Date(),
-    });
+    const db = getDb();
+    await db.query(
+        `INSERT INTO alarm_events (event_type, zone_id, level, score, flags)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [event.eventType, event.zoneId, event.level, event.score, event.flags],
+    );
     console.log(
-        `[MONGO] alarm_event: ${event.eventType} zone=${event.zoneId} level=${event.level}`,
+        `[PG] alarm_event: ${event.eventType} zone=${event.zoneId} level=${event.level} score=${event.score}`,
     );
 }

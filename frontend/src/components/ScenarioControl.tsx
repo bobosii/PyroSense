@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ScenarioName } from "../types";
+import { useEffect, useState } from "react";
+import { ScenarioName, ZoneUpdateMap } from "../types";
 
 const SCENARIOS: { value: ScenarioName; label: string }[] = [
     { value: "normal", label: "Normal İzleme" },
@@ -16,13 +16,30 @@ interface ZoneInfo {
 interface Props {
     zones: ZoneInfo[];
     onScenarioChange: (zoneId: string, scenario: string) => Promise<void>;
+    currentScenarios?: ZoneUpdateMap;
 }
 
-export default function ScenarioControl({ zones, onScenarioChange }: Props) {
+export default function ScenarioControl({
+    zones,
+    onScenarioChange,
+    currentScenarios,
+}: Props) {
     const [selected, setSelected] = useState<Record<string, ScenarioName>>(() =>
         Object.fromEntries(zones.map((z) => [z.zoneId, "normal"])),
     );
     const [loading, setLoading] = useState<Record<string, boolean>>({});
+
+    useEffect(() => {
+        if (!currentScenarios) return;
+        setSelected((prev) => {
+            const next = { ...prev };
+            for (const zoneId of Object.keys(currentScenarios)) {
+                const sc = currentScenarios[zoneId]?.scenario as ScenarioName;
+                if (sc) next[zoneId] = sc;
+            }
+            return next;
+        });
+    }, [currentScenarios]);
 
     const handleChange = async (zoneId: string, scenario: ScenarioName) => {
         setSelected((prev) => ({ ...prev, [zoneId]: scenario }));

@@ -1,6 +1,14 @@
 import express from "express";
+import axios from "axios";
 import { getDb } from "./database";
-import { getMongo } from "./mongoClient";
+import { isMqttConnected } from "./mqttConsumer";
+import {
+    FUSEKI_URL,
+    FUSEKI_DATASET,
+    FUSEKI_USER,
+    FUSEKI_PASSWORD,
+    ONTOLOGY_GRAPH,
+} from "../constants";
 
 const PORT = 3001;
 
@@ -30,20 +38,22 @@ export function startHttpServer(): void {
         }
     });
 
+    // GET /alarms -> PostgreSQL alarm geçmişi (son 20)
     app.get("/alarms", async (_req, res) => {
         try {
-            const db = await getMongo();
-            const docs = await db
-                .collection("alarm_events")
-                .find({})
-                .sort({ timestamp: -1 })
-                .limit(20)
-                .toArray();
-            res.json(docs);
+            const db = getDb();
+            const result = await db.query(
+                `SELECT id, zone_id, level, message, status, created_at, closed_at
+                 FROM alarms
+                 ORDER BY created_at DESC
+                 LIMIT 20`,
+            );
+            res.json(result.rows);
         } catch (err) {
             res.status(500).json({ error: String(err) });
         }
     });
+
     app.get("/active-alarms", async (_req, res) => {
         try {
             const db = getDb();
@@ -140,6 +150,100 @@ export function startHttpServer(): void {
                 },
                 totalReadings: parseInt(r.total_readings),
             });
+        } catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
+    });
+
+    app.get("/health", async (_req, res) => {
+        const results: Record<string, { ok: boolean; detail?: string }> = {};
+
+        // PostgreSQL
+        try {
+            const db = getDb();
+            await db.query("SELECT 1");
+            results.postgres = { ok: true };
+        } catch (e: any) {
+            results.postgres = { ok: false, detail: String(e.message) };
+        }
+
+        // Fuseki — ping + triple count (timeout 8 sn)
+        try {
+            await axios.get(`${FUSEKI_URL}/$/ping`, {
+                auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
+                timeout: 8000,
+            });
+            const countQ = `SELECT (COUNT(*) AS ?n) WHERE { GRAPH <${ONTOLOGY_GRAPH}> { ?s ?p ?o } }`;
+            const cv = await axios.get(`${FUSEKI_URL}/${FUSEKI_DATASET}/sparql`, {
+                params: { query: countQ },
+                headers: { Accept: "application/sparql-results+json" },
+                auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
+                timeout: 8000,
+            });
+            const tripleCount = parseInt(
+                cv.data?.results?.bindings?.[0]?.n?.value ?? "0",
+                10,
+            );
+            results.fuseki = { ok: true, detail: `${tripleCount} triple` };
+        } catch (e: any) {
+            results.fuseki = { ok: false, detail: String(e.message) };
+        }
+
+        // MQTT
+        results.mqtt = { ok: isMqttConnected() };
+
+        const allOk = Object.values(results).every((r) => r.ok);
+        res.status(allOk ? 200 : 207).json(results);
+    });
+
+    app.get("/history/:zoneId", async (req, res) => {
+        try {
+            const { zoneId } = req.params;
+            const { from, to, limit = "200", format } = req.query;
+
+            const fromDate = from
+                ? new Date(from as string)
+                : new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const toDate = to ? new Date(to as string) : new Date();
+            const rowLimit = Math.min(parseInt(limit as string) || 200, 1000);
+
+            const db = getDb();
+
+            const result = await db.query(
+                `SELECT time, temperature, humidity, smoke_ppm,
+                        wind_speed_ms, wind_dir_deg, flame_detected, co2_ppm, scenario
+                 FROM sensor_readings
+                 WHERE zone_id = $1 AND time BETWEEN $2 AND $3
+                 ORDER BY time ASC
+                 LIMIT $4`,
+                [zoneId, fromDate, toDate, rowLimit],
+            );
+
+            if (format === "csv") {
+                const headers =
+                    "time,temperature,humidity,smoke_ppm,wind_speed_ms,wind_dir_deg,flame_detected,co2_ppm,scenario";
+                const rows = result.rows.map((r: any) =>
+                    [
+                        r.time,
+                        r.temperature,
+                        r.humidity,
+                        r.smoke_ppm,
+                        r.wind_speed_ms,
+                        r.wind_dir_deg,
+                        r.flame_detected,
+                        r.co2_ppm ?? "",
+                        r.scenario,
+                    ].join(","),
+                );
+                res.setHeader("Content-Type", "text/csv; charset=utf-8");
+                res.setHeader(
+                    "Content-Disposition",
+                    `attachment; filename="${zoneId}_history.csv"`,
+                );
+                res.send([headers, ...rows].join("\n"));
+            } else {
+                res.json(result.rows);
+            }
         } catch (err) {
             res.status(500).json({ error: String(err) });
         }

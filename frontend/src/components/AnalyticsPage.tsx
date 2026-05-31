@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import HistoryPanel from "./HistoryPanel";
 
 interface ValidationMetrics {
     activeFireDetection: {
@@ -194,7 +195,14 @@ export default function AnalyticsPage({ refreshTick = 0 }: { refreshTick?: numbe
                         karşılaştırması
                     </p>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "flex-end",
+                        gap: 4,
+                    }}
+                >
                     <button
                         onClick={load}
                         style={{
@@ -268,52 +276,6 @@ export default function AnalyticsPage({ refreshTick = 0 }: { refreshTick?: numbe
                             gap: 16,
                         }}
                     >
-                        {/* Aktif Yangın Tespiti */}
-                        <StatCard
-                            title="Aktif Yangın Tespiti"
-                            subtitle="activefire senaryosu → HIGH/EXTREME beklenir"
-                            accent="var(--risk-extreme)"
-                        >
-                            <Row
-                                label="Doğru Pozitif (TP)"
-                                value={metrics.activeFireDetection.truePositive}
-                            />
-                            <Row
-                                label="Yanlış Negatif (FN)"
-                                value={metrics.activeFireDetection.falseNegative}
-                            />
-                            <div style={{ marginTop: 4 }}>
-                                <div
-                                    style={{
-                                        color: "var(--text-dim)",
-                                        fontSize: 11,
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    Precision
-                                </div>
-                                <MetricBar
-                                    value={metrics.activeFireDetection.precision}
-                                    color="var(--risk-extreme)"
-                                />
-                            </div>
-                            <div>
-                                <div
-                                    style={{
-                                        color: "var(--text-dim)",
-                                        fontSize: 11,
-                                        marginBottom: 4,
-                                    }}
-                                >
-                                    Recall (Sensitivity)
-                                </div>
-                                <MetricBar
-                                    value={metrics.activeFireDetection.recall}
-                                    color="var(--risk-high)"
-                                />
-                            </div>
-                        </StatCard>
-
                         {/* Yangın Öncesi Tehlike */}
                         <StatCard
                             title="Yangın Öncesi Tehlike"
@@ -437,6 +399,7 @@ export default function AnalyticsPage({ refreshTick = 0 }: { refreshTick?: numbe
                         yalnızca ham sensör değerleri üzerinde SPARQL çıkarımı yapar. Bu
                         tablo ikisinin örtüşme oranını gösterir.
                     </div>
+                    <HistoryPanel />
                 </>
             )}
         </div>

@@ -8,8 +8,9 @@ import ScenarioControl from "./components/ScenarioControl";
 import { WeatherWidget } from "./components/WeatherWidget";
 import ReasoningLog from "./components/ReasoningLog";
 import AnalyticsPage from "./components/AnalyticsPage";
+import SourcesPage from "./components/SourcesPage";
 
-type Page = "dashboard" | "analytics";
+type Page = "dashboard" | "analytics" | "kaynaklar";
 
 const WS_URL = "ws://localhost:3002";
 const MAX_HISTORY = 20;
@@ -55,8 +56,8 @@ const ZONES = [
         zoneId: "zone_silverfir",
         label: "Göknar — Bolu/Abant",
         shortLabel: "Göknar",
-        lat: 40.735,
-        lon: 31.6,
+        lat: 40.605,
+        lon: 31.28,
         topology: "slope",
         forestType: "SilverFir",
     },
@@ -83,7 +84,7 @@ const ZONES = [
         label: "Doğu Kayını — Karabük/Yenice",
         shortLabel: "D.Kayını",
         lat: 41.2,
-        lon: 32.6,
+        lon: 32.33,
         topology: "slope",
         forestType: "OrientalBeech",
     },
@@ -118,8 +119,8 @@ const ZONES = [
         zoneId: "zone_mixed",
         label: "Karma — Belgrad Ormanı/İstanbul",
         shortLabel: "Karma",
-        lat: 41.1944,
-        lon: 28.9514,
+        lat: 41.2483,
+        lon: 28.714,
         topology: "valley",
         forestType: "Mixed",
     },
@@ -169,6 +170,18 @@ export default function App() {
                     };
                 });
 
+                // Aktif alarmın skorunu ve seviyesini her RISK_UPDATE'te güncelle.
+                // DB'den yüklenenlerde score=0 hardcoded gelir; bu satır onu düzeltir.
+                if (data.alarm.active) {
+                    setAlarms((prev) =>
+                        prev.map((a) =>
+                            a.zoneId === data.zoneId && a.active
+                                ? { ...a, score: data.score, level: data.level }
+                                : a,
+                        ),
+                    );
+                }
+
                 if (data.alarm.justOpened) {
                     const entry: AlarmEntry = {
                         id: `${data.zoneId}-${Date.now()}`,
@@ -197,6 +210,25 @@ export default function App() {
                                 : a,
                         ),
                     );
+                }
+
+                // Backend yeniden başladığında alarm manager state'i sıfırlanır;
+                // PostgreSQL'den yüklenen eski OPEN alarmlar frontend'de "aktif"
+                // görünmeye devam eder ama backend bunları bir daha kapatmaz.
+                // Backend'den gelen alarm.active = false sinyali gerçek referans:
+                // bu bölgede aktif alarm yoksa frontend state'ini senkronize et.
+                if (!data.alarm.active) {
+                    setAlarms((prev) => {
+                        const hasStale = prev.some(
+                            (a) => a.zoneId === data.zoneId && a.active,
+                        );
+                        if (!hasStale) return prev;
+                        return prev.map((a) =>
+                            a.zoneId === data.zoneId && a.active
+                                ? { ...a, active: false, closedAt: data.timeStamp }
+                                : a,
+                        );
+                    });
                 }
             };
         };
@@ -263,7 +295,6 @@ export default function App() {
                     >
                         Dashboard
                     </a>
-                    <a href="#">Harita</a>
                     <a
                         href="#"
                         className={currentPage === "analytics" ? "active" : ""}
@@ -274,7 +305,16 @@ export default function App() {
                     >
                         Analitik
                     </a>
-                    <a href="#">Kaynaklar</a>
+                    <a
+                        href="#"
+                        className={currentPage === "kaynaklar" ? "active" : ""}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage("kaynaklar");
+                        }}
+                    >
+                        Kaynaklar
+                    </a>
                 </nav>
 
                 <div className="header-actions">
@@ -297,6 +337,8 @@ export default function App() {
             {/* ── Page Content ── */}
             {currentPage === "analytics" ? (
                 <AnalyticsPage refreshTick={refreshTick} />
+            ) : currentPage === "kaynaklar" ? (
+                <SourcesPage />
             ) : (
                 <>
                     {/* ── Main 3-Column Grid ── */}
@@ -317,6 +359,7 @@ export default function App() {
                             <ScenarioControl
                                 zones={ZONES}
                                 onScenarioChange={handleScenario}
+                                currentScenarios={zoneUpdates}
                             />
                         </section>
 

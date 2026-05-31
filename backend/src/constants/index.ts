@@ -25,9 +25,6 @@ export const ONTOLOGY_GRAPH = getEnvVar("ONTOLOGY_GRAPH");
 // PostgreSQL
 export const DATABASE_URL = getEnvVar("DATABASE_URL");
 
-// MongoDB
-export const MONGO_URL = getEnvVar("MONGO_URL");
-
 // WebScoket Port
 export const WEBSOCKET_PORT = getEnvVar("WEBSOCKET_PORT");
 

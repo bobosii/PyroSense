@@ -83,20 +83,35 @@ INSERT INTO zones VALUES
     ('zone_blackpine',      'Karaçam — Kastamonu',               'conifer',   41.3780, 33.7743, 'ridge',  'NormalMoisture'),
     ('zone_scotspine',      'Sarıçam — Sarıkamış/Kars',          'conifer',   40.3334, 42.5905, 'ridge',  'NormalMoisture'),
     ('zone_tauruscedar',    'Toros Sediri — Toros Dağları',      'conifer',   37.1000, 34.6000, 'slope',  'NormalMoisture'),
-    ('zone_silverfir',      'Göknar — Bolu/Abant',               'conifer',   40.7350, 31.6000, 'slope',  'NormalMoisture'),
+    ('zone_silverfir',      'Göknar — Bolu/Abant',               'conifer',   40.6050, 31.2800, 'slope',  'NormalMoisture'),
     ('zone_orientalspruce', 'Doğu Ladini — Rize/Artvin',         'conifer',   41.0500, 40.5000, 'slope',  'NormalMoisture'),
     ('zone_oak',            'Meşe — Kızılcahamam/Ankara',        'deciduous', 40.4697, 32.6558, 'valley', 'NormalMoisture'),
-    ('zone_orientalbeech',  'Doğu Kayını — Karabük/Yenice',      'deciduous', 41.2000, 32.6000, 'slope',  'NormalMoisture'),
+    ('zone_orientalbeech',  'Doğu Kayını — Karabük/Yenice',      'deciduous', 41.2000, 32.3300, 'slope',  'NormalMoisture'),
     ('zone_alder',          'Kızılağaç — Göksu Deltası/Mersin',  'deciduous', 36.3000, 33.9833, 'valley', 'NormalMoisture'),
     ('zone_shrubland',      'Maki — Antalya Kıyısı',             'shrub',     36.8841, 30.7056, 'slope',  'NormalMoisture'),
     ('zone_juniper',        'Ardıç — Beyşehir/Konya',            'conifer',   37.6750, 31.7250, 'plain',  'NormalMoisture'),
-    ('zone_mixed',          'Karma — Belgrad Ormanı/İstanbul',   'mixed',     41.1944, 28.9514, 'valley', 'NormalMoisture')
+    ('zone_mixed',          'Karma — Belgrad Ormanı/İstanbul',   'mixed',     41.2483, 28.7140, 'valley', 'NormalMoisture')
 ON CONFLICT (zone_id) DO UPDATE SET
     name        = EXCLUDED.name,
     forest_type = EXCLUDED.forest_type,
     latitude    = EXCLUDED.latitude,
     longitude   = EXCLUDED.longitude,
     topology    = EXCLUDED.topology;
+
+-- ----------------------------------------------------------
+-- Alarm Olay Denetim İzi (audit trail)
+-- ----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS alarm_events (
+    id          SERIAL          PRIMARY KEY,
+    event_type  TEXT            NOT NULL,   -- 'OPENED' | 'CLOSED'
+    zone_id     TEXT            NOT NULL,
+    level       TEXT            NOT NULL,
+    score       INTEGER         NOT NULL,
+    flags       TEXT[]          NOT NULL,   -- tetiklenen kural listesi
+    created_at  TIMESTAMPTZ     DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_alarm_events_zone ON alarm_events (zone_id, created_at DESC);
 
 -- ----------------------------------------------------------
 -- Hava Durumu Önbelleği (Open-Meteo)

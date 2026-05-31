@@ -28,6 +28,7 @@ export interface RiskUpdate {
     temperature: number;
     humidity: number;
     smokePpm: number;
+    scenario?: string;
     windSpeedMs: number;
     timeStamp: string;
     alarm: {

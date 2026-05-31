@@ -7,12 +7,15 @@
 //    close (<  CLOSE_THRESHOLD): alarm KAPAT
 //
 //  Cooldown:
-//    Alarm kapandıktan sonra COOLDOWN_MS geçmeden tekrar açılmaz
+//    Alarm kapandıktan sonra COOLDOWN_MS geçmeden tekrar açılmaz.
+//    İSTİSNA: Skor EXTREME eşiğine (≥ 80) ulaşırsa cooldown bypass edilir.
+//    Aktif yangın (alev tespiti) durumunda 10 dakika beklenmesi kabul edilemez.
 // ============================================================
 
-const OPEN_THRESHOLD = 60; // skor >= 60 Alarm ac
-const CLOSE_THRESHOLD = 45; // skor < 45 Alarm kapat
-const COOLDOWN_MS = 10 * 60 * 1000; // 10 dakika
+const OPEN_THRESHOLD = 55;    // skor >= 55 Alarm ac
+const CLOSE_THRESHOLD = 45;   // skor < 45 Alarm kapat
+const COOLDOWN_MS = 10 * 60 * 1000; // 10 dakika (EXTREME hariç)
+const EXTREME_THRESHOLD = 80; // bu skorun üzerinde cooldown görmezden gelinir
 
 interface AlarmState {
     active: boolean;
@@ -42,8 +45,10 @@ export function evaluateAlarm(zoneId: string, score: number): AlarmDesicion {
     let justClosed = false;
 
     if (!state.active) {
-        // Alarm kapali — acilma kosulunu kontrol et
-        const cooledDown = state.closedAt == null || now - state.closedAt >= COOLDOWN_MS;
+        // Alarm kapali — acilma kosulunu kontrol et.
+        // EXTREME skor (≥ 80) cooldown'ı aşar: aktif yangında bekleme yok.
+        const isExtreme = score >= EXTREME_THRESHOLD;
+        const cooledDown = isExtreme || state.closedAt == null || now - state.closedAt >= COOLDOWN_MS;
         if (score >= OPEN_THRESHOLD && cooledDown) {
             state.active = true;
             justOpened = true;

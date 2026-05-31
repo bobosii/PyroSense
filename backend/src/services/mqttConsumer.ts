@@ -14,10 +14,16 @@ import { calculateScore } from "./riskCalculator";
 
 const PYRO = "http://pyrosense.io/ontology#";
 
+let mqttConnected = false;
+export function isMqttConnected(): boolean {
+    return mqttConnected;
+}
+
 export function startMqttConsumer() {
     const client = mqtt.connect(MQTT_URL);
 
     client.on("connect", () => {
+        mqttConnected = true;
         console.log(`MQTT connected: ${MQTT_URL}`);
         client.subscribe("pyrosense/#", (err) => {
             if (err) console.log(`Subscribe error: ${err}`);
@@ -43,7 +49,7 @@ export function startMqttConsumer() {
             const readingUri = `${PYRO}reading_${message.device_id}_${message.timestamp}`;
             const [inferredFlags, downwindFlag] = await Promise.all([
                 inferRiskFlags(readingUri),
-                inferDownwindThreats(message.zone_id),
+                inferDownwindThreats(message.zone_id, message.readings.smoke_ppm),
             ]);
 
             // 4b. Bölgeler arası rüzgar yayılım flag'i varsa ekle
@@ -73,6 +79,7 @@ export function startMqttConsumer() {
                 score: risk.score,
                 level: risk.level,
                 flags: risk.flags,
+                scenario: message.scenario,
                 reasoningLog: risk.reasoningLog,
                 forestType: message.forest_type,
                 topology: message.topology,
@@ -88,16 +95,15 @@ export function startMqttConsumer() {
                 },
             });
 
-            // 9. Alarm eventleri - Postgresql state + mongodb audit log
+            // 9. Alarm olaylarını PostgreSQL'e kaydet (alarm_events audit log)
             if (alarm.justOpened) {
                 await saveAlarm(message.zone_id, risk.level, risk.flags);
                 await logAlarmEvent({
                     eventType: "OPENED",
                     zoneId: message.zone_id,
-                    flags: risk.flags,
                     level: risk.level,
                     score: risk.score,
-                    timestamp: new Date(),
+                    flags: risk.flags,
                 });
                 console.log(
                     `ALARM ACILDI zone=${message.zone_id} level=${risk.level} score=${risk.score}`,
@@ -110,11 +116,10 @@ export function startMqttConsumer() {
                     eventType: "CLOSED",
                     zoneId: message.zone_id,
                     level: risk.level,
-                    flags: [],
                     score: risk.score,
-                    timestamp: new Date(),
+                    flags: [],
                 });
-                console.log(`AlARM KAPANDI zone=${message.zone_id}`);
+                console.log(`ALARM KAPANDI zone=${message.zone_id}`);
             }
 
             // 10. Log
@@ -133,5 +138,12 @@ export function startMqttConsumer() {
 
     client.on("error", (err) => {
         console.log("MQTT Error: ", err);
+    });
+
+    client.on("close", () => {
+        mqttConnected = false;
+    });
+    client.on("disconnect", () => {
+        mqttConnected = false;
     });
 }

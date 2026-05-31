@@ -131,11 +131,11 @@ SELECT ?ft ?smoke ?mult WHERE {
         (?ft = "BlackPine"      && ?smoke > (75.0  * ?mult)) ||
         (?ft = "ScotsPine"      && ?smoke > (80.0  * ?mult)) ||
         (?ft = "TaurusCedar"    && ?smoke > (85.0  * ?mult)) ||
-        (?ft = "SilverFir"      && ?smoke > (105.0 * ?mult)) ||
-        (?ft = "OrientalSpruce" && ?smoke > (140.0 * ?mult)) ||
-        (?ft = "Oak"            && ?smoke > (110.0 * ?mult)) ||
-        (?ft = "OrientalBeech"  && ?smoke > (120.0 * ?mult)) ||
-        (?ft = "Alder"          && ?smoke > (130.0 * ?mult)) ||
+        (?ft = "SilverFir"      && ?smoke > (72.0  * ?mult)) ||
+        (?ft = "OrientalSpruce" && ?smoke > (72.0  * ?mult)) ||
+        (?ft = "Oak"            && ?smoke > (80.0  * ?mult)) ||
+        (?ft = "OrientalBeech"  && ?smoke > (72.0  * ?mult)) ||
+        (?ft = "Alder"          && ?smoke > (72.0  * ?mult)) ||
         (?ft = "Shrubland"      && ?smoke > (60.0  * ?mult)) ||
         (?ft = "Juniper"        && ?smoke > (80.0  * ?mult)) ||
         (?ft = "Mixed"          && ?smoke > (90.0  * ?mult))
@@ -174,11 +174,11 @@ SELECT ?ft ?co2 ?smoke WHERE {
         (?ft = "BlackPine"      && ?co2 > 850.0  && ?smoke > 50.0) ||
         (?ft = "ScotsPine"      && ?co2 > 850.0  && ?smoke > 50.0) ||
         (?ft = "TaurusCedar"    && ?co2 > 870.0  && ?smoke > 55.0) ||
-        (?ft = "SilverFir"      && ?co2 > 900.0  && ?smoke > 65.0) ||
-        (?ft = "OrientalSpruce" && ?co2 > 950.0  && ?smoke > 75.0) ||
-        (?ft = "Oak"            && ?co2 > 900.0  && ?smoke > 70.0) ||
-        (?ft = "OrientalBeech"  && ?co2 > 950.0  && ?smoke > 80.0) ||
-        (?ft = "Alder"          && ?co2 > 1000.0 && ?smoke > 85.0) ||
+        (?ft = "SilverFir"      && ?co2 > 700.0  && ?smoke > 40.0) ||
+        (?ft = "OrientalSpruce" && ?co2 > 700.0  && ?smoke > 40.0) ||
+        (?ft = "Oak"            && ?co2 > 750.0  && ?smoke > 50.0) ||
+        (?ft = "OrientalBeech"  && ?co2 > 750.0  && ?smoke > 50.0) ||
+        (?ft = "Alder"          && ?co2 > 800.0  && ?smoke > 55.0) ||
         (?ft = "Shrubland"      && ?co2 > 750.0  && ?smoke > 30.0) ||
         (?ft = "Juniper"        && ?co2 > 880.0  && ?smoke > 55.0) ||
         (?ft = "Mixed"          && ?co2 > 880.0  && ?smoke > 60.0)
@@ -466,9 +466,19 @@ async function fetchHotZoneWinds(excludeZoneId: string): Promise<HotZoneWind[]> 
 }
 
 // Ana fonksiyon: mevcut zone için DOWNWIND_SPREAD_THREAT kontrolü
+//
+// currentSmokePpm: bölgenin anlık duman okuması.
+// Normal senaryoda duman 0-15 ppm → DOWNWIND asla tetiklenmez.
+// PreFire/ActiveFire senaryosunda duman 80+ ppm → DOWNWIND tetiklenir.
+// Bu gate olmadan, komşu bölgelerde activefire çalışırken normal bölgeler
+// DOWNWIND(25) + RIDGE(10)/VALLEY(15) kombinasyonuyla yanlış MODERATE alır.
 export async function inferDownwindThreats(
     currentZoneId: string,
+    currentSmokePpm: number,
 ): Promise<InferredFlag | null> {
+    // Yerel duman eşiği: 25 ppm altında DOWNWIND bayrağı anlamlı değil.
+    // Normal koşullarda duman 0-15 ppm → DOWNWIND sessizleşir.
+    if (currentSmokePpm < 25) return null;
     try {
         const [coords, hotWinds] = await Promise.all([
             fetchZoneCoords(),
