@@ -380,9 +380,13 @@ export default function SourcesPage() {
     return (
         <div
             style={{
-                flex: 1,
+                position: "fixed",
+                top: "var(--header-h)",
+                left: 0,
+                right: 0,
+                bottom: 0,
                 overflowY: "auto",
-                padding: "24px 32px",
+                padding: "28px 32px 40px",
                 background: "var(--bg)",
             }}
         >

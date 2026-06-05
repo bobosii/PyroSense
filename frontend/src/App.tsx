@@ -134,6 +134,11 @@ export default function App() {
     const [history, setHistory] = useState<Record<string, SensorDataPoint[]>>({});
     const [activeZone, setActiveZone] = useState("zone_redpine");
     const [refreshTick, setRefreshTick] = useState(0);
+    const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+    useEffect(() => {
+        document.documentElement.setAttribute("data-theme", theme);
+    }, [theme]);
 
     useEffect(() => {
         let ws: WebSocket;
@@ -270,7 +275,7 @@ export default function App() {
             <header className="header">
                 <div className="header-brand">
                     <div className="header-brand-top">
-                        <span style={{ fontSize: 20 }}>🔥</span>
+                        <span className="header-logo-flame">🔥</span>
                         <span className="header-logo-text">PyroSense</span>
                         <div className={`header-live ${connected ? "" : "offline"}`}>
                             <span
@@ -318,19 +323,13 @@ export default function App() {
                 </nav>
 
                 <div className="header-actions">
-                    <button className="btn-deploy">Ekip Konuşlandır</button>
-                    <span
-                        className="material-symbols-outlined header-icon"
-                        style={{ fontVariationSettings: "'FILL' 0" }}
+                    <button
+                        className="btn-theme"
+                        onClick={() => setTheme(t => t === "dark" ? "light" : "dark")}
+                        title={theme === "dark" ? "Aydınlık mod" : "Karanlık mod"}
                     >
-                        notifications_active
-                    </span>
-                    <span
-                        className="material-symbols-outlined header-icon"
-                        style={{ fontVariationSettings: "'FILL' 0" }}
-                    >
-                        settings
-                    </span>
+                        {theme === "dark" ? "☀️" : "🌙"}
+                    </button>
                 </div>
             </header>
 
