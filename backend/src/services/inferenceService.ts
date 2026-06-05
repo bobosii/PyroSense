@@ -42,6 +42,44 @@ const RULE_META_STATIC: Record<string, RuleMeta> = {
 
 type Binding = Record<string, { value: string }>;
 
+// ============================================================
+// Fuseki Concurrency Limiter (Semaphore)
+//
+// 12 bölge aynı anda mesaj gönderdiğinde her bölge 8 paralel
+// SPARQL sorgusu açar → 96 eşzamanlı istek Fuseki'yi çökertir.
+// Semaphore maksimum eşzamanlı Fuseki isteğini MAX_CONCURRENT
+// ile sınırlar; fazlası kuyruğa girer ve sırayla işlenir.
+// ============================================================
+const MAX_CONCURRENT_SPARQL = 8;
+
+class Semaphore {
+    private slots: number;
+    private queue: (() => void)[] = [];
+
+    constructor(max: number) {
+        this.slots = max;
+    }
+
+    acquire(): Promise<void> {
+        if (this.slots > 0) {
+            this.slots--;
+            return Promise.resolve();
+        }
+        return new Promise((resolve) => this.queue.push(resolve));
+    }
+
+    release(): void {
+        const next = this.queue.shift();
+        if (next) {
+            next();
+        } else {
+            this.slots++;
+        }
+    }
+}
+
+const fusekiSem = new Semaphore(MAX_CONCURRENT_SPARQL);
+
 // Sabitler
 
 const PREFIXES = `
@@ -55,16 +93,27 @@ PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
 
 async function sparqlSelect(query: string): Promise<Binding[]> {
     const url = `${FUSEKI_URL}/${FUSEKI_DATASET}/sparql`;
+
+    await fusekiSem.acquire();
     try {
         const response = await axios.get(url, {
             params: { query },
             headers: { Accept: "application/sparql-results+json" },
             auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
+            timeout: 8000,
         });
         return response.data.results.bindings ?? [];
-    } catch (err) {
-        console.error("[inferenceService] SPARQL hatası:", err);
+    } catch (err: any) {
+        // Axios timeout → ECONNABORTED | ağ hatası → ECONNRESET / ECONNREFUSED
+        // Bunlar Fuseki geçici yük altındayken beklenen hatalar — sessizce atla
+        const code = err?.code ?? "";
+        const silentCodes = ["ECONNRESET", "ECONNABORTED", "ECONNREFUSED", "ETIMEDOUT"];
+        if (!silentCodes.includes(code)) {
+            console.error("[inferenceService] SPARQL hatası:", err.message ?? err);
+        }
         return [];
+    } finally {
+        fusekiSem.release();
     }
 }
 
@@ -321,14 +370,24 @@ LIMIT 1`;
     }));
 }
 
+// Kural metadata cache — OWL'daki ruleWeight/label değerleri çalışma
+// süresince değişmez. Her okumada Fuseki'ye sormak yerine ilk başarılı
+// yanıtı hafızada tut. Bu, Fuseki üzerindeki eşzamanlı istek yükünü
+// önemli ölçüde azaltır.
+const ruleMetaCache: Record<string, RuleMeta> = {};
+
 export async function fetchRuleMeta(
     ruleIds: string[],
 ): Promise<Record<string, RuleMeta>> {
     if (ruleIds.length === 0) return {};
 
-    const values = ruleIds.map((id) => `"${id}"`).join(", ");
+    // Cache'te olmayan rule ID'lerini bul
+    const missing = ruleIds.filter((id) => !(id in ruleMetaCache));
 
-    const q = `
+    if (missing.length > 0) {
+        const values = missing.map((id) => `"${id}"`).join(", ");
+
+        const q = `
         ${PREFIXES}
         SELECT ?ruleId ?weight ?label WHERE {
             GRAPH <${ONTOLOGY_GRAPH}> {
@@ -340,17 +399,21 @@ export async function fetchRuleMeta(
             }
         }`;
 
-    const rows = await sparqlSelect(q);
-    const map: Record<string, RuleMeta> = {};
-
-    for (const b of rows) {
-        map[b.ruleId.value] = {
-            weight: parseInt(b.weight.value, 10),
-            label: b.label.value,
-        };
+        const rows = await sparqlSelect(q);
+        for (const b of rows) {
+            ruleMetaCache[b.ruleId.value] = {
+                weight: parseInt(b.weight.value, 10),
+                label: b.label.value,
+            };
+        }
     }
 
-    return map;
+    // İstenen tüm rule'ları cache'ten döndür
+    const result: Record<string, RuleMeta> = {};
+    for (const id of ruleIds) {
+        if (ruleMetaCache[id]) result[id] = ruleMetaCache[id];
+    }
+    return result;
 }
 
 // ============================================================
@@ -412,8 +475,14 @@ interface HotZoneWind {
     windSpeedMs: number;
 }
 
+// Zone koordinat cache — koordinatlar hiç değişmez, her DOWNWIND
+// hesabında Fuseki'ye sormak yerine ilk başarılı yanıtı sakla.
+let zoneCoordsCache: ZoneCoord[] | null = null;
+
 // Adım 1: OWL named graph'tan tüm zone koordinatlarını çek
 async function fetchZoneCoords(): Promise<ZoneCoord[]> {
+    if (zoneCoordsCache !== null) return zoneCoordsCache;
+
     const q = `
 ${PREFIXES}
 SELECT ?zoneId ?lat ?lon WHERE {
@@ -425,11 +494,16 @@ SELECT ?zoneId ?lat ?lon WHERE {
   }
 }`;
     const rows = await sparqlSelect(q);
-    return rows.map((b) => ({
+    const coords = rows.map((b) => ({
         zoneId: b.zoneId.value,
         lat: parseFloat(b.lat.value),
         lon: parseFloat(b.lon.value),
     }));
+
+    if (coords.length > 0) {
+        zoneCoordsCache = coords; // sadece başarılı yanıtta cache'le
+    }
+    return coords;
 }
 
 // Adım 2: Son LOOKBACK_MIN dakikada HIGH/EXTREME risk üreten zone'ların

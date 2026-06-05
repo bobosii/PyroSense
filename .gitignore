@@ -45,6 +45,7 @@ pgdata/
 mongodb_data/
 logs/
 *.log
+*.docx
 
 # --- IDE / Editörler (Neovim ve VS Code) ---
 .vscode/

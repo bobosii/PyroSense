@@ -38,32 +38,74 @@ export function startMqttConsumer() {
             // 1. Postgresql e kayit edelim
             await saveSensorReading(message);
 
-            // 2. Drough Class i al - Turtle a yazmak icin once cekelim.
+            // 2. Fiziksel sınır kontrolü (sanity check)
+            // Sensör arızası senaryosunda üretilen imkânsız değerler
+            // (smoke=9999, temp=999, humidity=-1, wind=-5) SPARQL motoruna
+            // gönderilirse yanlış alarm üretir. Bu değerler gerçek doğada
+            // hiçbir zaman oluşamaz → çıkarımı atla, skor=0 kaydet.
+            const r = message.readings;
+            const isFaulty =
+                r.smoke_ppm > 2000       ||  // max gerçek yangın ~1000 ppm
+                r.temperature > 150      ||  // orman yangınında sensör erişimi yok
+                r.temperature < -60      ||  // Türkiye'de imkânsız
+                r.humidity < 0           ||  // fiziksel alt sınır
+                r.wind_speed_ms < 0;        // negatif hız imkânsız
+
+            if (isFaulty) {
+                const faultyRisk = { score: 0, level: "LOW" as const, flags: [], reasoningLog: [] };
+                const alarm = evaluateAlarm(message.zone_id, 0);
+                await saveRiskScore(message.zone_id, faultyRisk, "", message.timestamp, message.scenario);
+                broadcast({
+                    type: "RISK_UPDATE",
+                    zoneId: message.zone_id,
+                    score: 0,
+                    level: "LOW",
+                    flags: [],
+                    reasoningLog: [],
+                    forestType: message.forest_type,
+                    topology: message.topology,
+                    temperature: r.temperature,
+                    humidity: r.humidity,
+                    smokePpm: r.smoke_ppm,
+                    windSpeedMs: r.wind_speed_ms,
+                    timeStamp: message.timestamp,
+                    scenario: message.scenario,
+                    alarm: {
+                        active: alarm.shouldAlert,
+                        justOpened: alarm.justOpened,
+                        justClosed: alarm.justClosed,
+                    },
+                });
+                console.log(`[SANITY] ${message.zone_id} fizik dışı değer — çıkarım atlandı (smoke=${r.smoke_ppm} temp=${r.temperature} hum=${r.humidity} wind=${r.wind_speed_ms})`);
+                return;
+            }
+
+            // 3. Drough Class i al - Turtle a yazmak icin once cekelim.
             const droughtClass = await getZoneDrought(message.zone_id);
 
-            // 3. RDF'e cevirelim
+            // 4. RDF'e cevirelim
             const turtle = toRdfTurtle(message, droughtClass);
             await uploadTurtle(turtle);
 
-            // 4. Ontoloji tabanli cikartim yapalim.
+            // 5. Ontoloji tabanli cikartim yapalim.
             const readingUri = `${PYRO}reading_${message.device_id}_${message.timestamp}`;
             const [inferredFlags, downwindFlag] = await Promise.all([
                 inferRiskFlags(readingUri),
                 inferDownwindThreats(message.zone_id, message.readings.smoke_ppm),
             ]);
 
-            // 4b. Bölgeler arası rüzgar yayılım flag'i varsa ekle
+            // 5b. Bölgeler arası rüzgar yayılım flag'i varsa ekle
             const allFlags = downwindFlag
                 ? [...inferredFlags, downwindFlag]
                 : inferredFlags;
 
-            // 5. Skor ve seviye hesapla
+            // 6. Skor ve seviye hesapla
             const risk = calculateScore(allFlags);
 
-            // 6. Alarm karari ver
+            // 7. Alarm karari ver
             const alarm = evaluateAlarm(message.zone_id, risk.score);
 
-            // 7. PostgreSQL risk skoru kayit et.
+            // 8. PostgreSQL risk skoru kayit et.
             await saveRiskScore(
                 message.zone_id,
                 risk,
