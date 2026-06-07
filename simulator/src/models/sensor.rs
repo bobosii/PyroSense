@@ -72,6 +72,12 @@ pub struct NodeConfig {
     pub topology: Topology,
     pub base_lat: f64,
     pub base_lon: f64,
+    /// Bölgenin yaz mevsimi hakim rüzgar yönü (0-359°, meteorolojik konvansiyon: rüzgarın geldiği yön)
+    /// Kaynak: MGM uzun yıllar ortalamaları + yangın meteorolojisi literatürü
+    pub prevailing_wind_dir: u16,
+    /// ±varyans (derece). Normal dağılım std_dev olarak kullanılır.
+    /// Küçük değer → tutarlı yön (kıyı/boğaz etkisi), büyük değer → değişken yön (iç Anadolu)
+    pub wind_dir_variance: u16,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PyroSense — Gerçek Kod Analizi Mindmap</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #080d1a;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    overflow: hidden;
+    user-select: none;
+  }
+  #header {
+    position: fixed; top: 0; left: 0; right: 0; height: 50px;
+    background: rgba(8,13,26,0.95);
+    border-bottom: 1px solid rgba(255,100,30,0.3);
+    display: flex; align-items: center; padding: 0 18px;
+    z-index: 100; gap: 12px;
+  }
+  #header h1 { font-size: 17px; font-weight: 700; color: #ff6a1e; letter-spacing: 1px; }
+  #header .sub { font-size: 11px; color: rgba(255,255,255,0.35); }
+  #controls { margin-left: auto; display: flex; gap: 6px; }
+  #controls button {
+    background: rgba(255,106,30,0.12); border: 1px solid rgba(255,106,30,0.35);
+    color: #ff9a5e; padding: 4px 11px; border-radius: 5px;
+    cursor: pointer; font-size: 11px; transition: all 0.2s;
+  }
+  #controls button:hover { background: rgba(255,106,30,0.3); }
+  #canvas-container {
+    position: fixed; top: 50px; left: 0; right: 0; bottom: 0;
+    overflow: hidden; cursor: grab;
+  }
+  #canvas-container:active { cursor: grabbing; }
+  canvas { display: block; }
+  #tooltip {
+    position: fixed;
+    background: rgba(8,13,26,0.97);
+    border: 1px solid rgba(255,106,30,0.45);
+    border-radius: 10px; padding: 12px 15px; max-width: 310px;
+    pointer-events: none; opacity: 0; transition: opacity 0.15s;
+    z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  }
+  #tooltip.vis { opacity: 1; }
+  #tooltip h3 { color: #ff6a1e; font-size: 12px; margin-bottom: 5px; font-weight: 700; }
+  #tooltip p { color: rgba(255,255,255,0.78); font-size: 11px; line-height: 1.65; white-space: pre-line; }
+  #tooltip .tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+  #tooltip .tag {
+    background: rgba(255,106,30,0.13); border: 1px solid rgba(255,106,30,0.3);
+    color: #ff9a5e; font-size: 9.5px; padding: 2px 7px; border-radius: 4px;
+  }
+  #legend {
+    position: fixed; bottom: 16px; right: 16px;
+    background: rgba(8,13,26,0.88); border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 9px; padding: 10px 14px; z-index: 100;
+  }
+  #legend h4 { color: rgba(255,255,255,0.4); font-size: 9px; margin-bottom: 7px; text-transform: uppercase; letter-spacing: 1px; }
+  .li { display: flex; align-items: center; gap: 7px; margin-bottom: 4px; font-size: 10px; color: rgba(255,255,255,0.65); }
+  .ld { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div id="header">
+  <span style="font-size:20px">🔥</span>
+  <h1>PyroSense</h1>
+  <span class="sub">Gerçek Kod Analizi · Haziran 2026</span>
+  <div id="controls">
+    <button onclick="resetView()">↺ Sıfırla</button>
+    <button onclick="zoom(1.15)">＋</button>
+    <button onclick="zoom(0.87)">－</button>
+  </div>
+</div>
+<div id="canvas-container"><canvas id="c"></canvas></div>
+<div id="tooltip">
+  <h3 id="tt-t"></h3>
+  <p id="tt-b"></p>
+  <div class="tags" id="tt-tags"></div>
+</div>
+<div id="legend">
+  <h4>Lejant</h4>
+  <div class="li"><div class="ld" style="background:#ff6a1e"></div>Merkez</div>
+  <div class="li"><div class="ld" style="background:#4e9af1"></div>Ana Katman ✅</div>
+  <div class="li"><div class="ld" style="background:#3ecf8e"></div>Alt Bileşen</div>
+  <div class="li"><div class="ld" style="background:#e74c3c"></div>Eksik / Sapma ❌</div>
+  <div class="li"><div class="ld" style="background:#f5a623"></div>Ontoloji / Kural</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const cont = document.getElementById('canvas-container');
+let W, H, tr = {x:0,y:0,s:1}, drag=false, lm={x:0,y:0}, nodes=[], hov=null;
+
+// ── DATA ─────────────────────────────────────────────────────────────
+const CENTER = {
+  id:'root', label:'🔥 PyroSense', color:'#ff6a1e', r:54, bold:true,
+  tt:{title:'PyroSense — Yangın Erken Uyarı',
+      body:'Anlamsal IoT + WSN + OWL ontoloji tabanlı sistem.\n12 Türkiye bölgesi · 36 sensör düğümü · Gerçek koordinatlar.\nDurum: Backend + Sim + Frontend + Ontoloji yazıldı.',
+      tags:['OWL 2','Jena Rules','MQTT','TypeScript','Rust']}
+};
+
+const BRANCHES = [
+  // ── 1. Rust Simülatör
+  { id:'sim', label:'🤖 Rust\nSimülatör', color:'#27ae60', angle:-100, dist:230, r:44,
+    tt:{title:'Rust Simülatör — ✅ Tam Çalışıyor (~1100 satır)',
+        body:'12 zone × 3 node = 36 düğüm · HTTP API port:8090\nTokio async · rumqttc MQTT · axum HTTP\nEMA filtresi + RAWS 5-dk rüzgar penceresi',
+        tags:['Rust','Tokio','axum','rumqttc']},
+    children:[
+      {id:'sim_zones', label:'12 Zone\n36 Düğüm', color:'#52d999',
+        tt:{title:'12 Gerçek Türkiye Bölgesi',
+            body:'Kızılçam—Muğla/Menteşe · Karaçam—Kastamonu\nSarıçam—Sarıkamış/Kars · TorosSediri—Mersin\nGöknar—Bolu/Abant · D.Ladini—Rize/Artvin\nMeşe—Kızılcahamam · Kayın—Karabük\n+ 4 tane daha (Kızılağaç, Maki, Ardıç, Karma)',
+            tags:['37.2°N','41.3°N','WGS-84']}},
+      {id:'sim_scenarios', label:'4 Senaryo', color:'#52d999',
+        tt:{title:'Senaryo Motoru',
+            body:'Normal: mevsimsel offset + diurnal döngü + Weibull rüzgar + Gaussian gürültü\nPreFire: T≈50°C, Nem≈15%, Duman≈150-350ppm\nActiveFire: T≈55-70°C, Duman≈500-1000ppm, alev=true\nSensorFault: NaN/fizik dışı değerler (temp=999, hum=-1, smoke=9999)',
+            tags:['Normal','PreFire','ActiveFire','SensorFault']}},
+      {id:'sim_physics', label:'Fizik\nModeli', color:'#52d999',
+        tt:{title:'Fizik Tabanlı Üretim',
+            body:'Diurnal cycle: gece -5°C, öğle +8°C\nWeibull rüzgar (scale=3, shape=1.5)\nGaussian gürültü (σ=0.5°C, σ=1.5ppm)\nEMA α=0.3 (sıcaklık ve nem)\nRAWS 10×30s sustained wind window',
+            tags:['Weibull','Gaussian','EMA','RAWS']}},
+      {id:'sim_api', label:'HTTP API\n:8090', color:'#52d999',
+        tt:{title:'Senaryo Değiştirme API',
+            body:'POST /scenario\n{"scenario":"prefire","zone_id":"zone_redpine"}\nRüntime zone bazlı geçiş · ScenarioMap (Arc<RwLock>)\nBüm zone\'lar bağımsız senaryo alabilir',
+            tags:['axum','POST /scenario','Arc<RwLock>']}},
+    ]
+  },
+
+  // ── 2. Backend Pipeline
+  { id:'back', label:'⚙️ Backend\nPipeline', color:'#4e9af1', angle:-35, dist:230, r:44,
+    tt:{title:'Node.js/TypeScript Backend — ✅ Tam Çalışıyor (~1700 satır)',
+        body:'10 adımlı pipeline · Express REST :3001 · WebSocket :3002\nmqttConsumer → sanitize → rdf → fuseki → sparql → risk → alarm → ws\nOpen-Meteo hava entegrasyonu (her 1 saat)',
+        tags:['Node.js 20','TypeScript 5','Express','MQTT.js']},
+    children:[
+      {id:'pipeline', label:'10 Adımlı\nPipeline', color:'#7dc4ff',
+        tt:{title:'Pipeline Adımları',
+            body:'1. MQTT mesaj al\n2. Sanity check (smoke>2000, temp>150, hum<0, wind<0 → atla)\n3. PostgreSQL sensor_readings kaydet\n4. droughtClass al → RDF Turtle oluştur\n5. Fuseki\'ye yükle\n6. 8 SPARQL sorgusu (paralel) → flag\'ler\n7. Bölgeler arası downwind tespiti\n8. Risk skoru hesapla (additive weighted)\n9. Alarm hysteresis kontrolü\n10. WebSocket broadcast + PostgreSQL risk_scores kaydet',
+            tags:['10-adım','Event-Driven']}},
+      {id:'infer', label:'inferenceService\n615 satır', color:'#7dc4ff',
+        tt:{title:'SPARQL Tabanlı Çıkarım',
+            body:'8 paralel SPARQL sorgusu (Q1-Q8):\nQ1:FLAME_DETECTED · Q2:HIGH_DROUGHT_RISK\nQ3:SMOKE_ALARM · Q4:HIGH_SPREAD_RISK\nQ5:EARLY_FIRE_SIGNAL (CO2+duman)\nQ6:VALLEY_WIND · Q7:RIDGE_WIND\nQ8:SLOPE_SPREAD\nSemaphore (max 8 eşzamanlı Fuseki isteği)\nruleMetaCache + zoneCoordsCache (in-memory)',
+            tags:['SPARQL','Semaphore','Cache','8 sorgu']}},
+      {id:'downwind', label:'Downwind\nSpread Tespiti', color:'#7dc4ff',
+        tt:{title:'Bölgeler Arası Yayılım',
+            body:'Son 10 dakikada HIGH/EXTREME olan zone\'ları PostgreSQL\'den al\nHaversine mesafe hesabı (max 150km)\nWGS-84 bearing hesabı ±45° koni\nMin rüzgar 4 m/s + lokal duman 25ppm eşiği\nFlag: DOWNWIND_SPREAD_THREAT (ağırlık: 25)',
+            tags:['Haversine','Bearing','±45°cone']}},
+      {id:'alarm', label:'Alarm\nHysteresis', color:'#7dc4ff',
+        tt:{title:'alarmManager.ts — Hysteresis + Cooldown',
+            body:'Open eşiği: skor ≥ 55\nClose eşiği: skor < 45\nCooldown: 10 dakika (alarm tekrar açılma bekleme)\nEXTREME bypass: skor ≥ 80 → cooldown atlanır\nAlarm kaydı: PostgreSQL alarms tablosu',
+            tags:['Hysteresis','Cooldown 10min','EXTREME bypass']}},
+      {id:'rest', label:'REST API\n:3001', color:'#7dc4ff',
+        tt:{title:'HTTP Endpoint\'ler',
+            body:'GET /weather → weather_cache son kayıtlar\nGET /alarms → son 20 alarm\nGET /active-alarms → OPEN durumdaki alarmlar\nGET /validation-metrics → senaryo doğruluk istatistikleri\nGET /sparql → serbest SPARQL sorgusu',
+            tags:['Express','/weather','/alarms','/sparql','/validation-metrics']}},
+    ]
+  },
+
+  // ── 3. Ontoloji & Kurallar
+  { id:'onto', label:'🧠 Ontoloji\n& Kurallar', color:'#f5a623', angle:30, dist:230, r:44,
+    tt:{title:'OWL 2 + Jena Rules — ✅ Çalışıyor',
+        body:'pyrosense-core.owl: 489 satır · OWL 2 Turtle formatı\npyrosense-rules.jrl: 842 satır · Jena Rules formatı\n⚠️ SWRL DEĞİL — tasarım dokümanından sapma\n63 kural: 60 orman tipi + 3 topoloji kuralı',
+        tags:['OWL 2','Jena Rules (.jrl)','NOT SWRL']},
+    children:[
+      {id:'owl', label:'pyrosense-core.owl\n489 satır', color:'#f8c471',
+        tt:{title:'OWL 2 Çekirdek Ontoloji',
+            body:'ForestType hiyerarşisi (12 tür)\nTopology: Valley/Slope/Ridge/Plain\nDroughtIndex: Normal/Moderate/Extreme\nSensorNode + SensorReading sınıfları\nRiskRule: ruleId + ruleWeight + rdfs:label\nZone: zoneId + lat/lon koordinatları\nSSN (Semantic Sensor Network) hizalaması',
+            tags:['OWL 2','Turtle','SSN','12 ForestType']}},
+      {id:'jrl', label:'pyrosense-rules.jrl\n842 satır · 63 kural', color:'#f8c471',
+        tt:{title:'Jena Rules Dosyası (.jrl)',
+            body:'60 orman tipi kuralı:\n  5 kategori × 12 orman tipi\n  HighDroughtRisk · SmokeAlarm · SpreadRisk\n  EarlySignal · FlameDetected\n3 topoloji kuralı:\n  Valley_WindAmplification\n  Ridge_WindExposure · Slope_FireSpread\nv2.0: eşikler yeniden kalibre edildi\n(RedPine T>32/RH<30, Shrubland T>30)',
+            tags:['63 kural','Jena','12 tür','v2.0']}},
+      {id:'flags', label:'9 Risk Bayrağı\n& Ağırlıkları', color:'#f8c471',
+        tt:{title:'Risk Flag Sistemi',
+            body:'FLAME_DETECTED          → ağırlık: 65\nSMOKE_ALARM             → ağırlık: 35\nSLOPE_FIRE_SPREAD_CRITICAL → 30\nEARLY_FIRE_SIGNAL       → ağırlık: 25\nDOWNWIND_SPREAD_THREAT  → ağırlık: 25\nHIGH_DROUGHT_RISK       → ağırlık: 20\nHIGH_SPREAD_RISK        → ağırlık: 20\nVALLEY_WIND_AMPLIFICATION → 15\nRIDGE_WIND_EXPOSURE     → ağırlık: 10\n\nMax skor (alev yok): 79 → HIGH\nMax skor (alev var): 100 → EXTREME',
+            tags:['9 flag','additive','max-79-no-flame']}},
+      {id:'drought', label:'Kuraklık\nÇarpanı', color:'#f8c471',
+        tt:{title:'Kuraklık Çarpanı Sistemi',
+            body:'Open-Meteo API → son 30 gün yağış\nExtremeDrought:  eşik × 0.8 (daha kolay tetiklenir)\nModerateDrought: eşik × 0.9\nNormalMoisture:  eşik × 1.0 (değişmez)\nweather_cache → PostgreSQL\'de saklanır\nHer 1 saatte güncellenir',
+            tags:['Open-Meteo','drought_class','0.8×/0.9×']}},
+    ]
+  },
+
+  // ── 4. Veri Katmanı
+  { id:'data', label:'🗄️ Veri\nKatmanı', color:'#9b59b6', angle:100, dist:230, r:44,
+    tt:{title:'Çok Veritabanlı Mimari — ✅ Çalışıyor',
+        body:'PostgreSQL + TimescaleDB: zaman serisi\nApache Jena Fuseki: RDF triple store\nDocker Compose: tek komutla tüm sistem\nAdminer :8082 (DB yönetim arayüzü)',
+        tags:['PostgreSQL','TimescaleDB','Fuseki','Docker']},
+    children:[
+      {id:'pg', label:'PostgreSQL\n+ TimescaleDB', color:'#c39bd3',
+        tt:{title:'PostgreSQL Şeması',
+            body:'sensor_readings   → hypertable (zaman serisi)\nrisk_scores       → hypertable\nalarms            → OPEN/CLOSED durumu\nalarm_events      → OPENED/CLOSED audit log\nweather_cache     → Open-Meteo verisi\nIndex: (zone_id, time DESC) her tabloda\nmigrate_12zones.sql: 12 zone kaydı',
+            tags:['hypertable','5 tablo','TimescaleDB']}},
+      {id:'fuseki', label:'Apache Jena\nFuseki :3030', color:'#c39bd3',
+        tt:{title:'Jena Fuseki RDF Store',
+            body:'Dataset: pyrosense\nNamed graph: <http://pyrosense.io/ontology>\nOntoloji yüklemesi: backend start\'ta loadOntology()\nHer 2 saatte clearDefaultGraph() (sensor triple\'ları temizle)\nOWL named graph\'a dokunulmaz (ontoloji kalıcı)\nUI: localhost:3030 · user: admin/pyrosense123',
+            tags:['Fuseki 4.x','Named Graph','2h cleanup']}},
+      {id:'docker', label:'Docker\nCompose', color:'#c39bd3',
+        tt:{title:'Docker Compose Servisleri',
+            body:'mosquitto    → MQTT Broker :1883/:9001\nfuseki       → Jena Fuseki :3030 (linux/amd64)\npostgres     → PostgreSQL+TimescaleDB :5434\nadminer      → DB UI :8082\npyrosense-net: bridge ağı (isimle bulma)\nVolume: mosquitto_data, fuseki_data, postgres_data',
+            tags:['4 servis','bridge network','stain/jena-fuseki']}},
+    ]
+  },
+
+  // ── 5. Frontend
+  { id:'fe', label:'🖥️ Frontend\nVite+React', color:'#1abc9c', angle:165, dist:230, r:44,
+    tt:{title:'React Frontend — ✅ Çalışıyor (~2700 satır)',
+        body:'⚠️ Next.js DEĞİL — tasarım dokümanından sapma\nVite + React + TypeScript · victory-charts grafik\nWebSocket :3002 gerçek zamanlı · REST :3001\n3 Sayfa · 10 Bileşen · MAX_HISTORY=20 nokta',
+        tags:['Vite','React','TypeScript','NOT Next.js']},
+    children:[
+      {id:'pages', label:'3 Sayfa', color:'#56e0c5',
+        tt:{title:'Sayfa Yapısı',
+            body:'dashboard  → Ana ekran (harita + kart + grafik + alarm + senaryo)\nanalytics  → AnalyticsPage (istatistik, doğruluk metrikleri)\nkaynaklar  → SourcesPage (literatür, ontoloji referansları)',
+            tags:['dashboard','analytics','kaynaklar']}},
+      {id:'components', label:'10 Bileşen', color:'#56e0c5',
+        tt:{title:'React Bileşenleri',
+            body:'RiskCard        (155 satır) → skor/level/flag gösterimi\nZoneMap         ( 99 satır) → harita (Leaflet değil, SVG/canvas)\nSensorChart     (106 satır) → zaman serisi grafiği\nAlarmList       (114 satır) → aktif + geçmiş alarmlar\nScenarioControl (100 satır) → senaryo HTTP API tetikleyici\nWeatherWidget   ( 86 satır) → Open-Meteo hava verisi\nReasoningLog    ( 94 satır) → SPARQL/flag gerekçe gösterimi\nAnalyticsPage   (531 satır) → doğruluk & metrik paneli\nHistoryPanel    (390 satır) → geçmiş risk grafiği\nSourcesPage     (631 satır) → akademik referanslar',
+            tags:['10 component','531+631 satır büyük']}},
+      {id:'ws', label:'WebSocket\n:3002', color:'#56e0c5',
+        tt:{title:'Gerçek Zamanlı Veri',
+            body:'WS_URL: ws://localhost:3002\nMesaj tipi: RISK_UPDATE\nİçerik: zoneId, score, level, flags, reasoningLog,\n  forestType, topology, sıcaklık, nem, duman, rüzgar,\n  timeStamp, scenario, alarm.{active,justOpened,justClosed}\nMAX_HISTORY=20 nokta per zone (hafıza)',
+            tags:['ws://','RISK_UPDATE','20-nokta buffer']}},
+    ]
+  },
+
+  // ── 6. Eksikler
+  { id:'miss', label:'❌ Eksikler\n& Sapmalar', color:'#e74c3c', angle:230, dist:228, r:44,
+    tt:{title:'Gerçek Koda Göre Eksikler',
+        body:'Tasarım dokümanında olup kodda olmayan veya\nfarklı implement edilen şeyler.',
+        tags:['TODO','Sapma']},
+    children:[
+      {id:'m_fw', label:'C++ Firmware\nYok', color:'#f1948a',
+        tt:{title:'Arduino Firmware — ❌ Yazılmadı',
+            body:'Tasarım: C++ Arduino/ESP32 firmware\nGerçek: Sadece Rust simülatör var\nSonuç: Fiziksel donanım bağlanamaz\nNot: Simülatör jüri için yeterli',
+            tags:['C++','Arduino','ESP32','EKSIK']}},
+      {id:'m_gw', label:'Rust Edge\nGateway Yok', color:'#f1948a',
+        tt:{title:'Edge Gateway — ❌ Yazılmadı',
+            body:'Tasarım: Raspberry Pi üzerinde Rust gateway\n(Serial/WiFi okuma, yerel SQLite buffer)\nGerçek: Hiç yazılmadı\nSimülatör doğrudan MQTT broker\'a bağlanıyor',
+            tags:['Raspberry Pi','Serial','SQLite','EKSIK']}},
+      {id:'m_next', label:'Next.js → Vite\nSapması', color:'#f1948a',
+        tt:{title:'Frontend Framework Sapması',
+            body:'Tasarım: Next.js 14 + App Router + SSR\nGerçek: Vite + React (SPA, SSR yok)\nEtki: SEO, server-side rendering yok\nJüri için fark etmez (local demo)',
+            tags:['Next.js→Vite','SSR yok']}},
+      {id:'m_swrl', label:'SWRL → Jena\nRules Sapması', color:'#f1948a',
+        tt:{title:'Kural Dili Sapması',
+            body:'Tasarım: SWRL (W3C standardı)\nGerçek: Jena Rules (.jrl) formatı\nNeden: Jena Fuseki\'de SWRL desteği sınırlı\nEtki: Akademik standart farklı\nSonuç: Jena Rules daha güçlü ama az bilinen',
+            tags:['SWRL→.jrl','Jena Rules','Akademik']}},
+      {id:'m_test', label:'Test Yok', color:'#f1948a',
+        tt:{title:'Test Dosyası — ❌ Sıfır',
+            body:'Hiç unit test, integration test veya e2e test yok\nBackend: 0 test dosyası\nSimülatör: 0 test dosyası\nFrontend: 0 test dosyası\nEn kritik eksik: validation-metrics endpoint manuel test',
+            tags:['Unit Test','Integration','e2e','EKSIK']}},
+      {id:'m_auth', label:'Auth / RBAC\nYok', color:'#f1948a',
+        tt:{title:'Authentication — Kapsam Dışı',
+            body:'Planlandığı gibi kapsam dışı bırakıldı\nTüm endpoint\'ler açık (CORS: *)\nFuseki admin:pyrosense123 sabit\nJüri demosunda sorun yok (local)',
+            tags:['Auth','RBAC','Kapsam Dışı']}},
+    ]
+  },
+
+  // ── 7. Yapılanlar (Öne Çıkan Özellikler)
+  { id:'done', label:'✅ Öne Çıkan\nÖzellikler', color:'#3498db', angle:295, dist:228, r:44,
+    tt:{title:'Gerçek Kodda Öne Çıkan İyi Şeyler',
+        body:'Tasarım dokümanını aşan veya sofistike\nşekilde implement edilen özellikler.',
+        tags:['Quality','Innovation']},
+    children:[
+      {id:'d_downwind', label:'Bölgeler Arası\nYayılım Tespiti', color:'#7dc4ff',
+        tt:{title:'Downwind Spread Detection — Tasarımda Yoktu',
+            body:'Son 10dk HIGH/EXTREME zone\'ları bul\nHaversine mesafe (max 150km)\nWGS-84 bearing hesabı (±45° koni)\nMin rüzgar 4m/s + lokal duman 25ppm gate\nFlag: DOWNWIND_SPREAD_THREAT (w=25)\nBu özellik orijinal tasarım dokümanında YOK',
+            tags:['Haversine','Bearing','BONUS özellik']}},
+      {id:'d_sem', label:'Fuseki\nSemaphore', color:'#7dc4ff',
+        tt:{title:'Concurrency Limiter',
+            body:'12 zone × 8 sorgu = 96 eşzamanlı istek problemi\nSemaphore(max=8) ile Fuseki koruması\nFazla istekler kuyruğa girer\n2 ayrı cache: ruleMetaCache + zoneCoordsCache\nStatik RULE_META_STATIC fallback (Fuseki çevrimdışıysa)',
+            tags:['Semaphore','Cache','96→8 istek']}},
+      {id:'d_sanity', label:'Sanity Check\nSistemi', color:'#7dc4ff',
+        tt:{title:'Fizik Dışı Değer Filtresi',
+            body:'SensorFault senaryosunda Fuseki\'ye sahte veri gitmesini önler\nKontroller: smoke>2000, temp>150, temp<-60, hum<0, wind<0\nskor=0 kaydet → LOW seviye → WebSocket\'e ilet\nDetaylı log: [SANITY] zone fizik dışı değer — çıkarım atlandı',
+            tags:['SanityCheck','FaultDetection']}},
+      {id:'d_ema', label:'EMA + RAWS\nRüzgar Filtresi', color:'#7dc4ff',
+        tt:{title:'Sinyal İşleme Kalitesi',
+            body:'EMA α=0.3: sıcaklık ve nem gürültü bastırma\nRAWS standardı wind window:\n  10 örnek × 30sn = ~5 dakika sustained wind\n  Anlık gust\'ları filtreler\n  Yangın yayılım modellerine uygun\nPer-node FilterState: HashMap<String, FilterState>',
+            tags:['EMA α=0.3','RAWS','10-sample','FilterState']}},
+      {id:'d_val', label:'Validation\nMetrics API', color:'#7dc4ff',
+        tt:{title:'GET /validation-metrics',
+            body:'Sistem doğruluk istatistikleri:\nActivefire → HIGH/EXTREME beklenir\nPrefire → MODERATE/HIGH beklenir\nNormal → LOW beklenir\nSensorFault → score=0 beklenir\nScenario ground truth ile kıyaslama\nFrontend AnalyticsPage\'de görselleştirilir',
+            tags:['Ground Truth','Validation','AnalyticsPage']}},
+    ]
+  },
+];
+
+// ── LAYOUT ────────────────────────────────────────────────────────────
+function buildNodes() {
+  nodes = [];
+  nodes.push({...CENTER, x:0, y:0, parent:null, depth:0});
+  BRANCHES.forEach(b => {
+    const rad = b.angle * Math.PI / 180;
+    const bx = Math.cos(rad) * b.dist;
+    const by = Math.sin(rad) * b.dist;
+    nodes.push({...b, x:bx, y:by, parent:'root', depth:1});
+    const ch = b.children || [];
+    const n = ch.length;
+    ch.forEach((c, i) => {
+      const spread = Math.min(75, 340/(BRANCHES.length * 1.4));
+      const ba = b.angle - spread*(n-1)/2 + spread*i;
+      const cr = (ba * Math.PI/180);
+      const cd = 155;
+      nodes.push({...c, x:bx+Math.cos(cr)*cd, y:by+Math.sin(cr)*cd,
+        r:c.r||33, parent:b.id, depth:2, pc:b.color});
+    });
+  });
+}
+
+// ── DRAW ─────────────────────────────────────────────────────────────
+function resize() {
+  W = cont.clientWidth; H = cont.clientHeight;
+  canvas.width = W; canvas.height = H;
+  if (tr.x===0 && tr.y===0) { tr.x=W/2; tr.y=H/2; }
+  draw();
+}
+function w2s(wx,wy) { return {x:wx*tr.s+tr.x, y:wy*tr.s+tr.y}; }
+function s2w(sx,sy) { return {x:(sx-tr.x)/tr.s, y:(sy-tr.y)/tr.s}; }
+
+function drawEdge(a,b) {
+  const f=w2s(a.x,a.y), t=w2s(b.x,b.y);
+  const col = b.pc||b.color||'#888';
+  const alpha = b.depth===1?0.5:0.3;
+  const lw = b.depth===1?2.2:1.4;
+  ctx.save();
+  ctx.beginPath();
+  const mx=(f.x+t.x)/2, my=(f.y+t.y)/2;
+  ctx.moveTo(f.x,f.y);
+  ctx.quadraticCurveTo(mx,my,t.x,t.y);
+  ctx.strokeStyle = col + Math.round(alpha*255).toString(16).padStart(2,'0');
+  ctx.lineWidth = lw * tr.s;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function hex2rgb(h) {
+  return `${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)}`;
+}
+
+function drawNode(n) {
+  const {x:sx,y:sy}=w2s(n.x,n.y);
+  const r=(n.r||38)*tr.s;
+  const isH = hov&&hov.id===n.id;
+  ctx.save();
+  ctx.shadowColor = n.color;
+  ctx.shadowBlur = isH?30:12;
+  const g=ctx.createRadialGradient(sx-r*.3,sy-r*.3,r*.1,sx,sy,r);
+  const rgb=hex2rgb(n.color);
+  g.addColorStop(0,`rgba(${rgb},0.92)`);
+  g.addColorStop(1,`rgba(${rgb},0.38)`);
+  ctx.beginPath(); ctx.arc(sx,sy,r,0,Math.PI*2);
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle=isH?'#fff':n.color;
+  ctx.lineWidth=isH?2.5:1.5;
+  ctx.stroke();
+  ctx.shadowBlur=0;
+  const lines=(n.label||'').split('\n');
+  const fs=Math.max(8.5,Math.min(12.5,r*0.27))*(n.bold?1.1:1);
+  ctx.font=`${n.bold?'700':'600'} ${fs}px Segoe UI,system-ui`;
+  ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  const lh=fs*1.3, th=lines.length*lh;
+  lines.forEach((l,i)=>ctx.fillText(l,sx,sy-th/2+lh*(i+.5)));
+  ctx.restore();
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  // grid
+  ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.025)'; ctx.lineWidth=1;
+  const gs=60, ox=tr.x%(gs*tr.s), oy=tr.y%(gs*tr.s);
+  for(let x=ox;x<W;x+=gs*tr.s){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+  for(let y=oy;y<H;y+=gs*tr.s){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  ctx.restore();
+  nodes.forEach(n=>{
+    if(n.parent){const p=nodes.find(x=>x.id===n.parent);if(p)drawEdge(p,n);}
+  });
+  nodes.forEach(n=>drawNode(n));
+}
+
+// ── INTERACTION ───────────────────────────────────────────────────────
+function nodeAt(sx,sy) {
+  const {x:wx,y:wy}=s2w(sx,sy);
+  for(let i=nodes.length-1;i>=0;i--){
+    const n=nodes[i];
+    if(Math.hypot(wx-n.x,wy-n.y)<=(n.r||38))return n;
+  }
+  return null;
+}
+
+cont.addEventListener('mousemove',e=>{
+  const rc=cont.getBoundingClientRect();
+  const sx=e.clientX-rc.left, sy=e.clientY-rc.top;
+  if(dragging){tr.x+=e.clientX-lm.x;tr.y+=e.clientY-lm.y;lm={x:e.clientX,y:e.clientY};draw();return;}
+  const n=nodeAt(sx,sy); hov=n; cont.style.cursor=n?'pointer':'grab'; draw();
+  const tt=document.getElementById('tooltip');
+  if(n&&n.tt){
+    document.getElementById('tt-t').textContent=n.tt.title;
+    document.getElementById('tt-b').textContent=n.tt.body;
+    const te=document.getElementById('tt-tags'); te.innerHTML='';
+    (n.tt.tags||[]).forEach(t=>{const s=document.createElement('span');s.className='tag';s.textContent=t;te.appendChild(s);});
+    let lx=e.clientX+14, ly=e.clientY-8;
+    if(lx+320>window.innerWidth)lx=e.clientX-330;
+    if(ly+220>window.innerHeight)ly=e.clientY-220;
+    tt.style.left=lx+'px'; tt.style.top=ly+'px'; tt.classList.add('vis');
+  } else tt.classList.remove('vis');
+});
+
+cont.addEventListener('mousedown',e=>{dragging=true;lm={x:e.clientX,y:e.clientY};cont.style.cursor='grabbing';});
+window.addEventListener('mouseup',()=>{dragging=false;cont.style.cursor='grab';});
+
+cont.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rc=cont.getBoundingClientRect();
+  const sx=e.clientX-rc.left, sy=e.clientY-rc.top;
+  const d=e.deltaY<0?1.1:0.91;
+  const ns=Math.min(3.5,Math.max(0.2,tr.s*d));
+  tr.x=sx-(sx-tr.x)*(ns/tr.s); tr.y=sy-(sy-tr.y)*(ns/tr.s); tr.s=ns; draw();
+},{passive:false});
+
+function resetView(){tr={x:W/2,y:H/2,s:1};draw();}
+function zoom(f){tr.s=Math.min(3.5,Math.max(0.2,tr.s*f));draw();}
+
+// ── INIT ─────────────────────────────────────────────────────────────
+let drag=false;
+buildNodes();
+window.addEventListener('resize',resize);
+resize();
+
+// Giriş animasyonu
+const fin=JSON.parse(JSON.stringify(nodes));
+let af=0; const tf=50;
+function anim(){
+  af++;
+  const t=Math.min(1,af/tf);
+  const e=1-Math.pow(1-t,3);
+  nodes.forEach((n,i)=>{n.x=fin[i].x*e;n.y=fin[i].y*e;});
+  draw();
+  if(af<tf)requestAnimationFrame(anim);
+  else nodes.forEach((n,i)=>{n.x=fin[i].x;n.y=fin[i].y;});
+}
+anim();
+</script>
+</body>
+</html>

@@ -11,6 +11,8 @@ PyroSense üç ayrı API sunar: arka uç REST API'si, WebSocket gerçek zamanlı
   - [GET /alarms](#get-alarms)
   - [GET /active-alarms](#get-active-alarms)
   - [GET /validation-metrics](#get-validation-metrics)
+  - [GET /health](#get-health)
+  - [GET /history/:zoneId](#get-historyzoneid)
 - [WebSocket API](#websocket-api)
   - [Bağlantı](#bağlantı)
   - [RISK_UPDATE Mesajı](#risk_update-mesajı)
@@ -53,16 +55,6 @@ GET http://localhost:3001/weather
     "precipitation_30d": 18.4,
     "drought_class": "ModerateDrought",
     "fetched_at": "2026-05-19T18:00:00.000Z"
-  },
-  {
-    "zone_id": "zone_oak",
-    "temperature": 19.7,
-    "humidity": 68.0,
-    "wind_speed": 2.1,
-    "wind_direction": 180,
-    "precipitation_30d": 47.2,
-    "drought_class": "NormalMoisture",
-    "fetched_at": "2026-05-19T18:00:00.000Z"
   }
 ]
 ```
@@ -84,7 +76,7 @@ GET http://localhost:3001/weather
 
 ### GET /alarms
 
-MongoDB'deki alarm olay günlüğünden en son 20 olayı döner. Bu kayıtlar değiştirilemez; her `OPENED` ve `CLOSED` olayı ayrı birer belge olarak saklanır.
+PostgreSQL `alarms` tablosundan en son 20 alarm kaydını döner. Her kayıt bir alarmın yaşam döngüsünü (`OPEN` / `CLOSED`) temsil eder.
 
 **İstek**
 ```
@@ -95,22 +87,22 @@ GET http://localhost:3001/alarms
 ```json
 [
   {
-    "_id": "6629a1f3c4e2b10012345678",
-    "zoneId": "zone_redpine",
-    "event": "OPENED",
+    "id": 42,
+    "zone_id": "zone_redpine",
     "level": "HIGH",
-    "score": 75,
-    "flags": ["FLAME_DETECTED", "SMOKE_ALARM"],
-    "timestamp": "2026-05-19T14:32:00.000Z"
+    "message": "FLAME_DETECTED, SMOKE_ALARM",
+    "status": "CLOSED",
+    "created_at": "2026-05-19T14:32:00.000Z",
+    "closed_at": "2026-05-19T14:48:00.000Z"
   },
   {
-    "_id": "6629a2a0c4e2b10012345679",
-    "zoneId": "zone_redpine",
-    "event": "CLOSED",
-    "level": "LOW",
-    "score": 10,
-    "flags": [],
-    "timestamp": "2026-05-19T14:48:00.000Z"
+    "id": 43,
+    "zone_id": "zone_shrubland",
+    "level": "EXTREME",
+    "message": "FLAME_DETECTED, SMOKE_ALARM, SLOPE_FIRE_SPREAD_CRITICAL",
+    "status": "OPEN",
+    "created_at": "2026-05-19T18:05:00.000Z",
+    "closed_at": null
   }
 ]
 ```
@@ -119,19 +111,19 @@ GET http://localhost:3001/alarms
 
 | Alan | Tür | Açıklama |
 |---|---|---|
-| `_id` | string | MongoDB belge kimliği |
-| `zoneId` | string | Bölge tanımlayıcısı |
-| `event` | string | `OPENED` \| `CLOSED` |
-| `level` | string | Olay anındaki risk seviyesi |
-| `score` | integer | Olay anındaki risk skoru (0–100) |
-| `flags` | string[] | Tetiklenen OWL bayrakları |
-| `timestamp` | ISO 8601 | Olay zamanı |
+| `id` | integer | Birincil anahtar |
+| `zone_id` | string | Bölge tanımlayıcısı |
+| `level` | string | `LOW` \| `MODERATE` \| `HIGH` \| `EXTREME` |
+| `message` | string | Tetiklenen OWL bayraklarının virgülle ayrılmış listesi |
+| `status` | string | `OPEN` \| `CLOSED` |
+| `created_at` | ISO 8601 | Alarmın açıldığı zaman |
+| `closed_at` | ISO 8601 \| null | Alarmın kapandığı zaman; henüz kapanmadıysa `null` |
 
 ---
 
 ### GET /active-alarms
 
-PostgreSQL'deki `alarms` tablosundan durum `OPEN` olan aktif alarmları döner. Her bölgeden yalnızca en son aktif alarm gelir.
+PostgreSQL `alarms` tablosundan durumu `OPEN` olan aktif alarmları döner. Her bölgeden yalnızca en son aktif alarm gelir.
 
 **İstek**
 ```
@@ -144,7 +136,7 @@ GET http://localhost:3001/active-alarms
   {
     "zone_id": "zone_shrubland",
     "level": "EXTREME",
-    "message": "Risk score: 95",
+    "message": "FLAME_DETECTED, SMOKE_ALARM",
     "created_at": "2026-05-19T18:05:12.000Z"
   }
 ]
@@ -152,20 +144,11 @@ GET http://localhost:3001/active-alarms
 
 Aktif alarm yoksa boş dizi `[]` döner.
 
-**Alan Açıklamaları**
-
-| Alan | Tür | Açıklama |
-|---|---|---|
-| `zone_id` | string | Bölge tanımlayıcısı |
-| `level` | string | `LOW` \| `MODERATE` \| `HIGH` \| `EXTREME` |
-| `message` | string | İnsan okunabilir alarm açıklaması |
-| `created_at` | ISO 8601 | Alarmın açıldığı zaman |
-
 ---
 
 ### GET /validation-metrics
 
-`risk_scores` tablosundaki tüm kayıtları simülatör senaryo etiketleriyle karşılaştırarak doğrulama metriklerini hesaplar. Analytics sayfası bu endpoint'i kullanır ve her yeni sensör okuması geldiğinde otomatik yenilenir.
+`risk_scores` tablosundaki tüm kayıtları simülatör senaryo etiketleriyle karşılaştırarak doğrulama metriklerini hesaplar. Analytics sayfası bu endpoint'i kullanır.
 
 **İstek**
 ```
@@ -205,18 +188,80 @@ GET http://localhost:3001/validation-metrics
 |---|---|
 | `activeFireDetection.truePositive` | `activefire` senaryosunda HIGH/EXTREME tespit edilen doğru sayı |
 | `activeFireDetection.falseNegative` | `activefire` senaryosunda kaçırılan (LOW/MODERATE) sayı |
-| `activeFireDetection.precision` | TP / (TP + FP) — yanlış alarm oranının tersi |
+| `activeFireDetection.precision` | TP / (TP + FP) |
 | `activeFireDetection.recall` | TP / (TP + FN) — tespit duyarlılığı |
-| `dangerDetection.truePositive` | `prefire` senaryosunda MODERATE+ tespit edilen doğru sayı |
-| `dangerDetection.recall` | Tehlike tespit hassasiyeti |
-| `normalConditions.falsePositive` | `activefire` olmayan senaryolarda yanlış HIGH/EXTREME sayısı |
-| `normalConditions.trueNegative` | `normal` senaryosunda doğru LOW tespiti |
+| `dangerDetection.recall` | `prefire` senaryosunda MODERATE+ tespit hassasiyeti |
 | `normalConditions.specificity` | TN / (TN + FP) |
-| `sensorFault.falseAlarms` | `sensorFault` senaryosunda yanlış HIGH/EXTREME sayısı |
 | `sensorFault.correctlySuppressed` | `sensorFault` senaryosunda doğru baskılanan sayı |
 | `totalReadings` | Tablodaki toplam kayıt sayısı |
 
-Değer hesaplanamıyorsa (paydası sıfır) `precision`, `recall`, `specificity` alanları `null` döner.
+Değer hesaplanamıyorsa (payda sıfır) `precision`, `recall`, `specificity` alanları `null` döner.
+
+---
+
+### GET /health
+
+Tüm bağımlı servislerin (PostgreSQL, Fuseki, MQTT) sağlık durumunu döner. Monitoring ve hata ayıklama için kullanılır.
+
+**İstek**
+```
+GET http://localhost:3001/health
+```
+
+**Yanıt** — `200 OK` (tümü sağlıklı) veya `207 Multi-Status` (en az biri hatalı)
+```json
+{
+  "postgres": { "ok": true },
+  "fuseki":   { "ok": true, "detail": "365 triple" },
+  "mqtt":     { "ok": true }
+}
+```
+
+Bir servis hatalıysa `"ok": false` ve `"detail"` alanında hata mesajı döner.
+
+---
+
+### GET /history/:zoneId
+
+Belirli bir bölge ve zaman aralığı için ham sensör okumalarını döner. Analytics sayfasındaki Tarihsel Sensör Verisi paneli bu endpoint'i kullanır.
+
+**İstek**
+```
+GET http://localhost:3001/history/{zoneId}?from=&to=&limit=&format=
+```
+
+**Sorgu Parametreleri**
+
+| Parametre | Tür | Varsayılan | Açıklama |
+|---|---|---|---|
+| `zoneId` | string | — | Bölge tanımlayıcısı (URL path) |
+| `from` | ISO 8601 | Son 24 saat | Başlangıç zamanı |
+| `to` | ISO 8601 | Şimdi | Bitiş zamanı |
+| `limit` | integer | 200 | Maksimum satır sayısı (en fazla 1000) |
+| `format` | string | — | `csv` geçilirse CSV dosyası indirilir |
+
+**Yanıt** — `200 OK` (JSON)
+```json
+[
+  {
+    "time": "2026-05-19T14:00:00.000Z",
+    "temperature": 32.4,
+    "humidity": 28.1,
+    "smoke_ppm": 12.3,
+    "wind_speed_ms": 4.2,
+    "wind_dir_deg": 218,
+    "flame_detected": false,
+    "co2_ppm": 421.0,
+    "scenario": "normal"
+  }
+]
+```
+
+**CSV İndirme**
+```
+GET http://localhost:3001/history/zone_redpine?from=2026-05-19T00:00:00Z&format=csv
+```
+`Content-Disposition: attachment; filename="zone_redpine_history.csv"` başlığıyla CSV döner.
 
 ---
 
@@ -232,19 +277,20 @@ Tüm aktif WebSocket bağlantılarına her sensör okuması işlendiğinde otoma
 const ws = new WebSocket('ws://localhost:3002');
 
 ws.onopen = () => console.log('Bağlandı');
-ws.onclose = () => setTimeout(() => connect(), 3000); // Otomatik yeniden bağlantı
+ws.onclose = () => setTimeout(() => connect(), 3000);
 
 ws.onmessage = (event) => {
   const msg = JSON.parse(event.data);
   if (msg.type === 'RISK_UPDATE') {
-    // Mesajı işle
+    // msg.flags      → string[]       (tetiklenen kural kimlikleri)
+    // msg.reasoningLog → ReasoningEntry[] (ağırlık + koşul detayı)
   }
 };
 ```
 
 ### RISK_UPDATE Mesajı
 
-Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasının ardından tüm bağlı istemcilere gönderilir.
+Tek mesaj türü `RISK_UPDATE`'tir. Her sensör okumasının tamamlanmasından sonra tüm bağlı istemcilere gönderilir.
 
 ```json
 {
@@ -252,17 +298,18 @@ Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasın
   "zoneId": "zone_redpine",
   "score": 75,
   "level": "HIGH",
-  "flags": [
+  "flags": ["FLAME_DETECTED", "SMOKE_ALARM"],
+  "reasoningLog": [
     {
       "rule": "FLAME_DETECTED",
       "label": "Alev Tespiti",
-      "condition": "flame_detected = true",
+      "condition": "RedPine | Alev sensörü aktif sinyal verdi (52.3°C)",
       "weight": 65
     },
     {
       "rule": "SMOKE_ALARM",
       "label": "Duman Alarmı",
-      "condition": "smoke_ppm > threshold",
+      "condition": "RedPine | Duman 680 ppm (kuraklık çarpanı: ×1.0)",
       "weight": 35
     }
   ],
@@ -273,6 +320,7 @@ Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasın
   "smokePpm": 680.0,
   "windSpeedMs": 7.2,
   "timeStamp": "2026-05-19T18:06:30.000Z",
+  "scenario": "activefire",
   "alarm": {
     "active": true,
     "justOpened": true,
@@ -289,7 +337,8 @@ Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasın
 | `zoneId` | string | Bölge tanımlayıcısı (örn. `"zone_redpine"`) |
 | `score` | integer | Hesaplanan risk skoru (0–100) |
 | `level` | string | `"LOW"` \| `"MODERATE"` \| `"HIGH"` \| `"EXTREME"` |
-| `flags` | Flag[] | Tetiklenen OWL kurallarının listesi |
+| `flags` | string[] | Tetiklenen OWL kural kimliklerinin listesi |
+| `reasoningLog` | ReasoningEntry[] | Her bayrağın ağırlık + koşul detayı |
 | `forestType` | string | Orman tipi (örn. `"RedPine"`, `"Oak"`) |
 | `topology` | string | `"Slope"` \| `"Ridge"` \| `"Valley"` \| `"Plain"` |
 | `temperature` | float | Sensör sıcaklığı (°C) |
@@ -297,15 +346,16 @@ Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasın
 | `smokePpm` | float | Duman yoğunluğu (PPM) |
 | `windSpeedMs` | float | Rüzgar hızı (m/s) |
 | `timeStamp` | ISO 8601 | Okuma zamanı |
+| `scenario` | string | Simülatör senaryo etiketi |
 | `alarm` | AlarmState | Alarm durumu |
 
-**Flag Nesnesi**
+**ReasoningEntry Nesnesi**
 
 | Alan | Tür | Açıklama |
 |---|---|---|
-| `rule` | string | Kural tanımlayıcısı (örn. `"FLAME_DETECTED"`) |
-| `label` | string | İnsan okunabilir Türkçe etiket |
-| `condition` | string | Tetikleme koşulu açıklaması |
+| `rule` | string | Kural kimliği (örn. `"FLAME_DETECTED"`) |
+| `label` | string | Türkçe etiket (OWL'dan veya statik fallback'ten) |
+| `condition` | string | Tetikleme koşulunun metin açıklaması |
 | `weight` | integer | Risk skoruna katkı ağırlığı |
 
 **AlarmState Nesnesi**
@@ -318,14 +368,22 @@ Tek mesaj türü vardır: `RISK_UPDATE`. Her sensör okumasının tamamlanmasın
 
 **Risk Seviyeleri ve Eşikler**
 
-| Skor Aralığı | Level | Alarm Davranışı |
-|---|---|---|
-| 0 – 34 | `LOW` | Alarm kapalı |
-| 35 – 59 | `MODERATE` | Alarm kapalı |
-| 60 – 79 | `HIGH` | Skor ≥ 70 ise alarm açılır |
-| 80 – 100 | `EXTREME` | Alarm açılır |
+| Skor Aralığı | Level |
+|---|---|
+| 0–34 | `LOW` |
+| 35–59 | `MODERATE` |
+| 60–79 | `HIGH` |
+| 80–100 | `EXTREME` |
 
-Alarm açılma eşiği 70, kapanma eşiği 45'tir (histerezis). Son kapanmadan bu yana 10 dakika geçmeden yeni alarm açılmaz.
+**Alarm Durum Makinesi**
+
+| Parametre | Değer |
+|---|---|
+| Açılma eşiği | skor ≥ 55 |
+| Kapanma eşiği | skor < 45 |
+| Soğuma süresi | 10 dakika (EXTREME senaryolarında bypass edilir) |
+
+Alarm açıldığında ve kapandığında PostgreSQL `alarms` ve `alarm_events` tablolarına kayıt düşülür.
 
 ---
 
@@ -363,16 +421,21 @@ Content-Type: application/json
 
 **Yanıt** — `200 OK`
 ```json
-{ "ok": true }
+{
+  "success": true,
+  "message": "zone_id=zone_redpine → activefire senaryosuna geçildi"
+}
 ```
+
+Bilinmeyen senaryo adı gönderilirse `"success": false` ve hata mesajı döner.
 
 **Senaryo Özellikleri**
 
 | Senaryo | Sıcaklık | Nem | Duman (PPM) | Alev | CO₂ (PPM) |
 |---|---|---|---|---|---|
-| `normal` | Günlük döngü (12–28°C) | %40–80 | ~5 | false | ~400 |
-| `prefire` | Normal +7°C | %8–25 | 80–350 | false | 600–900 |
-| `activefire` | 45–70°C | %5–15 | 500–1000 | **true** | ~2000 |
+| `normal` | Günlük döngü (12–28°C) | %40–80 | ~5 | false | ~415 |
+| `prefire` | Normal +7°C | %8–25 | 80–350 | false | ~450 |
+| `activefire` | 45–70°C | %3–15 | 500–1000 | **true** | ~2000 |
 | `sensorFault` | 999.9°C (geçersiz) | -1% (geçersiz) | rastgele | null | null |
 
 **Tam Test Akışı**
@@ -404,7 +467,7 @@ done
 
 ## Fuseki SPARQL Endpoint
 
-**Temel URL:** `http://localhost:3030/pyrosense`  
+**Temel URL:** `http://localhost:3030/pyrosense`
 **Kimlik doğrulama:** Basic Auth — `admin:pyrosense123`
 
 Named graph: `http://pyrosense.io/ontology`
@@ -422,31 +485,11 @@ curl -G http://localhost:3030/pyrosense/sparql \
       GRAPH <http://pyrosense.io/ontology> {
         ?r pyro:ruleId     ?rule ;
            pyro:ruleWeight ?weight ;
-           pyro:ruleLabel  ?label .
+           rdfs:label      ?label .
       }
     }
     ORDER BY DESC(?weight)
   "
-```
-
-**Örnek Yanıt**
-```json
-{
-  "results": {
-    "bindings": [
-      {
-        "rule":   { "value": "FLAME_DETECTED" },
-        "weight": { "value": "65" },
-        "label":  { "value": "Alev Tespiti" }
-      },
-      {
-        "rule":   { "value": "SMOKE_ALARM" },
-        "weight": { "value": "35" },
-        "label":  { "value": "Duman Alarmı" }
-      }
-    ]
-  }
-}
 ```
 
 **Triple sayısını doğrula**
@@ -459,8 +502,6 @@ curl -G http://localhost:3030/pyrosense/sparql \
     WHERE { GRAPH <http://pyrosense.io/ontology> { ?s ?p ?o } }
   "
 ```
-
-Beklenen sonuç: `"n": { "value": "365" }`
 
 ### UPDATE Sorgusu
 
@@ -485,9 +526,10 @@ curl -X POST http://localhost:3030/pyrosense/update \
 | HTTP Kodu | Durum | Açıklama |
 |---|---|---|
 | `200 OK` | Başarı | İstek başarıyla tamamlandı |
-| `500 Internal Server Error` | Sunucu hatası | Veritabanı bağlantısı veya sorgu hatası; gövdede `{ "error": "..." }` |
+| `207 Multi-Status` | Kısmi hata | `/health` — en az bir servis hatalı |
+| `500 Internal Server Error` | Sunucu hatası | Veritabanı veya sorgu hatası; gövdede `{ "error": "..." }` |
 
-WebSocket bağlantısı koptuğunda frontend 3 saniye sonra otomatik yeniden bağlanır. Bağlantı durumu `CANLI` / `BAĞLANTI YOK` göstergesiyle arayüzde görünür.
+WebSocket bağlantısı koptuğunda frontend 3 saniye sonra otomatik yeniden bağlanır.
 
 ---
 

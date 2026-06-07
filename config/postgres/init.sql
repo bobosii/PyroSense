@@ -82,13 +82,13 @@ INSERT INTO zones VALUES
     ('zone_redpine',        'Kızılçam — Muğla/Menteşe',          'conifer',   37.2151, 28.3627, 'slope',  'NormalMoisture'),
     ('zone_blackpine',      'Karaçam — Kastamonu',               'conifer',   41.3780, 33.7743, 'ridge',  'NormalMoisture'),
     ('zone_scotspine',      'Sarıçam — Sarıkamış/Kars',          'conifer',   40.3334, 42.5905, 'ridge',  'NormalMoisture'),
-    ('zone_tauruscedar',    'Toros Sediri — Toros Dağları',      'conifer',   37.1000, 34.6000, 'slope',  'NormalMoisture'),
+    ('zone_tauruscedar',    'Toros Sediri — Çamlıyayla/Mersin',  'conifer',   37.2800, 34.6200, 'slope',  'NormalMoisture'),
     ('zone_silverfir',      'Göknar — Bolu/Abant',               'conifer',   40.6050, 31.2800, 'slope',  'NormalMoisture'),
     ('zone_orientalspruce', 'Doğu Ladini — Rize/Artvin',         'conifer',   41.0500, 40.5000, 'slope',  'NormalMoisture'),
     ('zone_oak',            'Meşe — Kızılcahamam/Ankara',        'deciduous', 40.4697, 32.6558, 'valley', 'NormalMoisture'),
     ('zone_orientalbeech',  'Doğu Kayını — Karabük/Yenice',      'deciduous', 41.2000, 32.3300, 'slope',  'NormalMoisture'),
     ('zone_alder',          'Kızılağaç — Göksu Deltası/Mersin',  'deciduous', 36.3000, 33.9833, 'valley', 'NormalMoisture'),
-    ('zone_shrubland',      'Maki — Antalya Kıyısı',             'shrub',     36.8841, 30.7056, 'slope',  'NormalMoisture'),
+    ('zone_shrubland',      'Maki — Kemer/Antalya',              'shrub',     36.5500, 30.5500, 'slope',  'NormalMoisture'),
     ('zone_juniper',        'Ardıç — Beyşehir/Konya',            'conifer',   37.6750, 31.7250, 'plain',  'NormalMoisture'),
     ('zone_mixed',          'Karma — Belgrad Ormanı/İstanbul',   'mixed',     41.2483, 28.7140, 'valley', 'NormalMoisture')
 ON CONFLICT (zone_id) DO UPDATE SET

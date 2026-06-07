@@ -3,7 +3,13 @@
 #  Orman tipine göre diferansiye edilmiş yangın risk kuralları
 #  + Topoloji bazlı risk yükseltme kuralları
 #
-#  Toplam: 60 orman tipi kuralı + 3 topoloji kuralı = 63 kural
+#  Toplam: 60 orman tipi kuralı + 4 topoloji kuralı = 64 kural
+#
+#  DEĞİŞİKLİK NOTLARI (v2 → v2.1):
+#    - windDirDeg tipi düzeltildi: plain string → ^^xsd:double (rdfConverter.ts)
+#    - Yeni kural eklendi: Slope_SouthWindHazard → SOUTH_WIND_SLOPE_HAZARD
+#        Güney sektörü rüzgarı (135°–225°) + yamaç topolojisi kombinasyonu.
+#        Lodos/Kıble/Keşişleme rüzgarları yamaçta baca etkisi yaratır.
 #
 #  DEĞİŞİKLİK NOTLARI (v1 → v2):
 #    - OWL-JRL yapısal hizalaması düzeltildi:
@@ -839,4 +845,32 @@
   lessThan(?hum, 30)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SLOPE_FIRE_SPREAD_CRITICAL")
+]
+
+# Yamaç + güney sektörü rüzgarı → baca etkisi yayılım tehlikesi
+#
+# Güney sektörü rüzgarları (135°–225°: Keşişleme/Kıble/Lodos) Türkiye'de
+# yangın mevsiminde en tehlikeli rüzgar grubudur:
+#   - Lodos (GB, ~225°): sıcak-kuru, Ege/Akdeniz'in birincil yangın rüzgarı
+#   - Kıble/Sirokko (G, ~180°): Sahra kökenli, nem < 15% getirebilir
+#   - Keşişleme (GD, ~135°): yaz aylarında ısıtıcı
+# Yamaçta bu rüzgar alevleri yukarı iterek önündeki vejetasyonu ısıtır
+# (baca etkisi) → yayılma hızı 2-3× artar.
+#
+# NOT: Jena greaterThanOrEqual/lessThanOrEqual desteği yoktur; iki sınır için
+# greaterThan(x, 134) ve lessThan(x, 226) yaklaşımı kullanılmıştır.
+# (SPARQL sorgusunda >= 135 ve <= 225 tam değerler kullanılır.)
+[Slope_SouthWindHazard:
+  (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
+  (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
+  (?node <http://pyrosense.io/ontology#topology> "Slope")
+  (?reading <http://pyrosense.io/ontology#windDirDeg> ?windDir)
+  (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
+  (?reading <http://pyrosense.io/ontology#temperature> ?temp)
+  greaterThan(?windDir, 134)
+  lessThan(?windDir, 226)
+  greaterThan(?wind, 4)
+  greaterThan(?temp, 25)
+  ->
+  (?reading <http://pyrosense.io/ontology#riskFlag> "SOUTH_WIND_SLOPE_HAZARD")
 ]

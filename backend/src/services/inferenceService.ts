@@ -37,6 +37,7 @@ const RULE_META_STATIC: Record<string, RuleMeta> = {
     HIGH_DROUGHT_RISK: { weight: 20, label: "Yüksek Kuraklık Riski" },
     HIGH_SPREAD_RISK: { weight: 20, label: "Yüksek Yayılım Riski" },
     VALLEY_WIND_AMPLIFICATION: { weight: 15, label: "Vadi Rüzgar Etkisi" },
+    SOUTH_WIND_SLOPE_HAZARD: { weight: 15, label: "Güney Rüzgar Yamaç Tehlikesi" },
     RIDGE_WIND_EXPOSURE: { weight: 10, label: "Sırt Rüzgar Açıklığı" },
 };
 
@@ -259,8 +260,41 @@ SELECT ?wind ?hum ?temp WHERE {
 }
 LIMIT 1`;
 
-    // 8 sorguyu aynı anda Fuseki'ye gönder
-    const [r1, r2, r3, r4, r5, r6, r7, r8] = await Promise.all([
+    // Q9: SOUTH_WIND_SLOPE_HAZARD
+    //
+    // Güney sektörü rüzgarı (135°–225°: SE→S→SW) + yamaç topolojisi kombinasyonu.
+    //
+    // Fiziksel gerekçe:
+    //   Türkiye'de yangın mevsiminde hakim tehlikeli rüzgarlar güney kökenlidir:
+    //     - Lodos (GB, ~225°): sıcak-kuru, Ege/Akdeniz kıyısında birincil yangın rüzgarı
+    //     - Kıble/Sirokko (G, ~180°): Sahra orijinli, nem < 15% ile gelebilir
+    //     - Keşişleme (GD, ~135°): yaz aylarında ısıtıcı etkisi var
+    //   Yamaç topolojisinde güney rüzgarı alevleri yukarı doğru iter (baca etkisi):
+    //     alevlerin önündeki vejetasyon hava akımıyla ısınır → yayılma hızı 2-3× artar.
+    //
+    // Eşikler:
+    //   windDirDeg ∈ [135, 225] → güney sektörü (45° toleranslı)
+    //   windSpeedMs > 4.0       → anlamsız hava hareketini filtrele (Q8'den 1 m/s düşük;
+    //                             yön faktörü ek tehlike katar)
+    //   temperature > 25.0      → temel sıcak koşul (düşük eşik: yön + sıcaklık yeterli)
+    //
+    // windDirDeg ^^xsd:double olarak Fuseki'ye yazılır (rdfConverter.ts'te düzeltildi).
+    const q9 = `
+${PREFIXES}
+SELECT ?windDir ?wind ?temp WHERE {
+    ${basePattern(readingUri)}
+    FILTER(
+        ?topo = "Slope"          &&
+        ?windDir >= 135.0        &&
+        ?windDir <= 225.0        &&
+        ?wind    >   4.0         &&
+        ?temp    >  25.0
+    )
+}
+LIMIT 1`;
+
+    // 9 sorguyu aynı anda Fuseki'ye gönder
+    const [r1, r2, r3, r4, r5, r6, r7, r8, r9] = await Promise.all([
         sparqlSelect(q1),
         sparqlSelect(q2),
         sparqlSelect(q3),
@@ -269,6 +303,7 @@ LIMIT 1`;
         sparqlSelect(q6),
         sparqlSelect(q7),
         sparqlSelect(q8),
+        sparqlSelect(q9),
     ]);
 
     const flags: { rule: string; condition: string }[] = [];
@@ -355,6 +390,25 @@ LIMIT 1`;
             condition:
                 `Yamaç | Rüzgar ${parseFloat(b.wind.value).toFixed(1)} m/s` +
                 ` & Nem %${parseFloat(b.hum.value).toFixed(0)}` +
+                ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
+        });
+    }
+
+    // Q9: SOUTH_WIND_SLOPE_HAZARD
+    if (r9.length > 0) {
+        const b = r9[0];
+        const dirDeg = parseFloat(b.windDir.value).toFixed(0);
+        // Yön etiketi: Lodos (210-240°), Kıble (150-210°), Keşişleme (135-150°)
+        const dir = parseFloat(b.windDir.value);
+        const dirLabel =
+            dir >= 210 ? "Lodos (GB)" :
+            dir >= 165 ? "Kıble (G)"  :
+                         "Keşişleme (GD)";
+        flags.push({
+            rule: "SOUTH_WIND_SLOPE_HAZARD",
+            condition:
+                `Yamaç | ${dirLabel} ${dirDeg}°` +
+                ` ${parseFloat(b.wind.value).toFixed(1)} m/s` +
                 ` & Sıcaklık ${parseFloat(b.temp.value).toFixed(1)}°C`,
         });
     }

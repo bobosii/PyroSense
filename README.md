@@ -33,6 +33,7 @@ PyroSense; OWL 2 ontoloji ve SPARQL çıkarım motoru kullanan, Türkiye'nin 12 
 │                        Rust Simülatör  :8090                     │
 │  Fizik Motoru (Gaussian gürültü + Weibull rüzgar + günlük döngü) │
 │  EMA Filtresi (α=0.3) + WindWindow (10×30s kayan ortalama)       │
+│  Bölge bazlı hakim rüzgar yönü (prevailing_wind_dir ± varyans)   │
 │  HTTP API :8090  →  POST /scenario  (bölge bazlı senaryo kontrol)│
 └────────────────────────┬────────────────────────────────────────┘
                          │ MQTT  pyrosense/#
@@ -48,26 +49,26 @@ PyroSense; OWL 2 ontoloji ve SPARQL çıkarım motoru kullanan, Türkiye'nin 12 
 │  1. saveSensorReading()    → PostgreSQL / TimescaleDB            │
 │  2. toRdfTurtle()          → RDF Turtle serileştirme             │
 │  3. uploadTurtle()         → Apache Jena Fuseki  :3030           │
-│  4. inferRiskFlags()       → SPARQL çıkarım (+ statik fallback)  │
+│  4. inferRiskFlags()       → SPARQL çıkarım (Q1–Q9)             │
 │  5. getZoneDrought()       ← PostgreSQL kuraklık indeksi         │
 │  6. calculateRisk()        → Toplamlı bayrak skorlaması (0-100)  │
-│  7. evaluateAlarm()        → Histerezis (aç≥70, kapat<45)        │
+│  7. evaluateAlarm()        → Histerezis (aç≥55, kapat<45)        │
 │  8. saveRiskScore()        → PostgreSQL                          │
 │  9. broadcast()            → WebSocket Gateway  :3002            │
 │ 10. saveAlarm/closeAlarm() → PostgreSQL alarm durumu             │
-│ 11. logAlarmEvent()        → MongoDB denetim izi                 │
+│ 11. logAlarmEvent()        → PostgreSQL alarm_events denetim izi │
 └─────────────────────────────────────────────────────────────────┘
-         │                │                │
-         ▼                ▼                ▼
-  PostgreSQL          MongoDB          WebSocket
-  TimescaleDB         alarm_events     :3002
-  :5434               :27017           (frontend)
-                                          │
-                                          ▼
-                              ┌───────────────────────┐
-                              │  React Frontend :5173  │
-                              │  Dashboard / Analitik  │
-                              └───────────────────────┘
+         │                │
+         ▼                ▼
+  PostgreSQL          WebSocket
+  TimescaleDB         :3002
+  :5434               (frontend)
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  React Frontend :5173  │
+              │  Dashboard / Analitik  │
+              └───────────────────────┘
 ```
 
 ---
@@ -80,12 +81,11 @@ PyroSense; OWL 2 ontoloji ve SPARQL çıkarım motoru kullanan, Türkiye'nin 12 
 | Mesaj Kuyruğu | **Mosquitto** (MQTT 3.1.1) | Simülatör → Backend mesaj taşıma |
 | Ontoloji Motoru | **Apache Jena Fuseki** (OWL 2 + SPARQL) | Sensör triple'ları üzerinde semantik çıkarım |
 | Backend | **Node.js / TypeScript** + ts-node | MQTT tüketici + risk pipeline |
-| Zaman Serisi DB | **PostgreSQL + TimescaleDB** | Sensör okumaları, risk skorları, alarmlar |
-| Doküman DB | **MongoDB** | Değiştirilemez alarm olay denetim izi |
+| Zaman Serisi DB | **PostgreSQL + TimescaleDB** | Sensör okumaları, risk skorları, alarmlar, denetim izi |
 | Hava API | **Open-Meteo** (ücretsiz, API anahtarsız) | 30 günlük gerçek yağış → kuraklık sınıfı |
 | Gerçek Zamanlı İletim | **WebSocket** (ws kütüphanesi) | Canlı risk skoru aktarımı |
 | Frontend | **React + TypeScript** (Vite) | Dashboard, harita, analitik, senaryo kontrolü |
-| Yönetim Arayüzleri | Adminer :8082, Mongo Express :8081 | Veritabanı inceleme |
+| Yönetim Arayüzü | Adminer :8082 | PostgreSQL inceleme |
 
 ---
 
@@ -96,10 +96,10 @@ PyroSense/
 ├── simulator/                  # Rust sensör simülatörü
 │   ├── src/
 │   │   ├── main.rs             # Giriş noktası, bölge konfigürasyonu, ana döngü
-│   │   ├── nodes.rs            # NodeConfig tanımları
-│   │   ├── models/sensor.rs    # SensorReading, ForestType, Topology
+│   │   ├── nodes.rs            # NodeConfig tanımları (prevailing_wind_dir dahil)
+│   │   ├── models/sensor.rs    # SensorReading, NodeConfig, ForestType, Topology
 │   │   ├── mqtt/               # MQTT publisher (rumqttc, QoS::AtMostOnce)
-│   │   └── scenarios/mod.rs    # SensorPhysics, EmaFilter, WindWindow
+│   │   └── scenarios/mod.rs    # SensorPhysics, EmaFilter, WindWindow, prevailing_wind_dir()
 │   └── Cargo.toml
 │
 ├── backend/                    # TypeScript backend
@@ -109,20 +109,19 @@ PyroSense/
 │       ├── types/sensor.ts     # SensorMessage tipi
 │       └── services/
 │           ├── mqttConsumer.ts      # 11 adımlı pipeline
-│           ├── rdfConverter.ts      # JSON → RDF Turtle + NaN temizleme
+│           ├── rdfConverter.ts      # JSON → RDF Turtle (windDirDeg dahil ^^xsd:double)
 │           ├── fusekiClient.ts      # Fuseki Admin API + SPARQL UPDATE ile ontoloji yükleme
-│           ├── inferenceService.ts  # SPARQL çıkarım + statik fallback (RULE_META_STATIC)
+│           ├── inferenceService.ts  # SPARQL çıkarım Q1–Q9 + statik fallback
 │           ├── riskCalculator.ts    # Bayrak tabanlı toplamlı skorlama
 │           ├── alarmManager.ts      # Histerezis + soğuma süresi durum makinesi
 │           ├── weatherService.ts    # Open-Meteo fetch + kuraklık sınıflandırması
 │           ├── weatherRepository.ts
 │           ├── sensorRepository.ts
 │           ├── riskRepository.ts
-│           ├── alarmLogRepository.ts # MongoDB yazımı
+│           ├── alarmLogRepository.ts # PostgreSQL alarm_events yazımı
 │           ├── wsGateway.ts         # WebSocket yayın sunucusu
 │           ├── httpServer.ts        # REST API :3001
-│           ├── database.ts          # PostgreSQL bağlantısı
-│           └── mongoClient.ts       # MongoDB lazy singleton
+│           └── database.ts          # PostgreSQL bağlantısı
 │
 ├── frontend/                   # React + TypeScript arayüzü
 │   └── src/
@@ -136,19 +135,24 @@ PyroSense/
 │           ├── ScenarioControl.tsx  # Senaryo kontrol paneli
 │           ├── WeatherWidget.tsx    # Hava durumu widgeti
 │           ├── ReasoningLog.tsx     # OWL çıkarım adımları log'u
-│           └── AnalyticsPage.tsx    # Doğrulama metrikleri (otomatik yenileme)
+│           ├── HistoryPanel.tsx     # Tarihsel sensör verisi sorgu paneli
+│           ├── AnalyticsPage.tsx    # Doğrulama metrikleri
+│           └── SourcesPage.tsx      # Bilimsel kaynaklar sayfası
 │
 ├── ontology/
-│   ├── pyrosense-core.owl      # OWL 2 ontoloji (sınıflar, özellikler, bireyler)
-│   └── pyrosense-rules.jrl     # 63+ Jena kural dili kuralı
+│   ├── pyrosense-core.owl      # OWL 2 ontoloji (sınıflar, özellikler, bireyler, kural ağırlıkları)
+│   └── pyrosense-rules.jrl     # 64 Jena kural dili kuralı
 │
 ├── config/
 │   ├── mosquitto/mosquitto.conf
 │   └── postgres/
 │       ├── init.sql            # Şema + TimescaleDB hypertable + 12 bölge seed
-│       └── migrate_12zones.sql
+│       └── migrate_12zones.sql # Eski veritabanlarına geçiş scripti
 │
-├── docker-compose.yml          # 6 altyapı servisi
+├── docs/
+│   └── API.md                  # Tam API referansı
+│
+├── docker-compose.yml          # 4 altyapı servisi (Mosquitto, Fuseki, PostgreSQL, Adminer)
 ├── .env                        # Ortam konfigürasyonu
 └── README.md
 ```
@@ -169,7 +173,7 @@ PyroSense/
 docker compose up -d
 ```
 
-6 servis başlar: Mosquitto, Fuseki, PostgreSQL/TimescaleDB, MongoDB, Mongo Express, Adminer.
+4 servis başlar: Mosquitto, Fuseki, PostgreSQL/TimescaleDB, Adminer.
 
 > **Not:** Fuseki dataset'i (`pyrosense`) backend başladığında **otomatik olarak** oluşturulur ve ontoloji yüklenir. Manuel yapılandırma gerekmez.
 
@@ -184,7 +188,7 @@ npm run dev
 Backend başladığında şunları yapar:
 - Fuseki'nin hazır olmasını bekler (max 60s)
 - `pyrosense` dataset'ini write erişimiyle yeniden oluşturur
-- `ontology/pyrosense-core.owl` dosyasını SPARQL UPDATE ile yükler (365 triple)
+- `ontology/pyrosense-core.owl` dosyasını SPARQL UPDATE ile yükler
 - MQTT broker'a bağlanır, `pyrosense/#` kanalına abone olur
 - Open-Meteo'dan hava verisi çeker (başlangıçta + her saat)
 - WebSocket gateway'i :3002 portunda başlatır
@@ -197,7 +201,7 @@ cd simulator
 cargo run
 ```
 
-12 bölge için her 30 saniyede bir sensör okuması yayınlar.
+12 bölge × 3 node = 36 düğüm için her 30 saniyede bir sensör okuması yayınlar. Her bölgenin hakim rüzgar yönü meteorolojik veriye dayalıdır.
 
 ### 4. Frontend'i Başlat
 
@@ -213,22 +217,22 @@ Tarayıcıda `http://localhost:5173` adresini aç.
 
 ## Sensör Bölgeleri
 
-12 farklı Türkiye orman tipi için birer sensör düğümü:
+12 farklı Türkiye orman tipi için birer izleme bölgesi:
 
-| Bölge ID | Ad | Orman Tipi | Topografya | Koordinatlar |
+| Bölge ID | Ad | Orman Tipi | Topografya | Hakim Rüzgar |
 |---|---|---|---|---|
-| zone_redpine | Kızılçam — Muğla/Menteşe | Kızılçam | Yamaç | 37.22°N, 28.36°E |
-| zone_blackpine | Karaçam — Kastamonu | Karaçam | Sırt | 41.38°N, 33.77°E |
-| zone_scotspine | Sarıçam — Sarıkamış/Kars | Sarıçam | Sırt | 40.33°N, 42.59°E |
-| zone_tauruscedar | Toros Sediri — Toros Dağları | Toros Sediri | Yamaç | 37.10°N, 34.60°E |
-| zone_silverfir | Göknar — Bolu/Abant | Göknar | Yamaç | 40.74°N, 31.60°E |
-| zone_orientalspruce | Doğu Ladini — Rize/Artvin | Doğu Ladini | Yamaç | 41.05°N, 40.50°E |
-| zone_oak | Meşe — Kızılcahamam/Ankara | Meşe | Vadi | 40.47°N, 32.66°E |
-| zone_orientalbeech | Doğu Kayını — Karabük/Yenice | Doğu Kayını | Yamaç | 41.20°N, 32.60°E |
-| zone_alder | Kızılağaç — Göksu Deltası/Mersin | Kızılağaç | Vadi | 36.30°N, 33.98°E |
-| zone_shrubland | Maki — Antalya Kıyısı | Maki | Yamaç | 36.88°N, 30.71°E |
-| zone_juniper | Ardıç — Beyşehir/Konya | Ardıç | Ova | 37.68°N, 31.73°E |
-| zone_mixed | Karma — Belgrad Ormanı/İstanbul | Karma | Vadi | 41.19°N, 28.95°E |
+| zone_redpine | Kızılçam — Muğla/Menteşe | Kızılçam | Yamaç | Lodos GB 220° |
+| zone_blackpine | Karaçam — Kastamonu | Karaçam | Sırt | Karadeniz K-KB 340° |
+| zone_scotspine | Sarıçam — Sarıkamış/Kars | Sarıçam | Sırt | Sibirya KD 50° |
+| zone_tauruscedar | Toros Sediri — Toros Dağları | Toros Sediri | Yamaç | Akdeniz G-GB 195° |
+| zone_silverfir | Göknar — Bolu/Abant | Göknar | Yamaç | Karadeniz B-KB 290° |
+| zone_orientalspruce | Doğu Ladini — Rize/Artvin | Doğu Ladini | Yamaç | Karadeniz KKD 20° |
+| zone_oak | Meşe — Kızılcahamam/Ankara | Meşe | Vadi | İç Anadolu K-KB 330° |
+| zone_orientalbeech | Doğu Kayını — Karabük/Yenice | Doğu Kayını | Yamaç | Batı Karadeniz K 355° |
+| zone_alder | Kızılağaç — Göksu Deltası/Mersin | Kızılağaç | Vadi | Akdeniz meltemi G-GB 185° |
+| zone_shrubland | Maki — Antalya Kıyısı | Maki | Yamaç | Lodos+Meltemi B-GB 240° |
+| zone_juniper | Ardıç — Beyşehir/Konya | Ardıç | Ova | İç Anadolu K-KB 320° |
+| zone_mixed | Karma — Belgrad Ormanı/İstanbul | Karma | Vadi | Poyraz KKD 25° |
 
 Her sensör okuması şu alanları içerir: `temperature` (°C), `humidity` (%), `smoke_ppm`, `uv_index`, `wind_speed_ms`, `wind_dir_deg`, `flame_detected`, `co2_ppm`.
 
@@ -236,8 +240,18 @@ Her sensör okuması şu alanları içerir: `temperature` (°C), `humidity` (%),
 
 Ham okumalar yayınlanmadan önce iki filtreden geçer:
 
-- **EMA Filtresi** (α = 0.3) — sıcaklık ve neme uygulanır. Senaryo değişimlerinde ani sıçramaları önler, sensör termal ataleti simüle eder.
-- **WindWindow** (10 örnek × 30s = 5 dk) — rüzgar hızı için kayan ortalama. Yangın yayılım modellerinde kullanılan RAWS (Uzak Otomatik Hava İstasyonu) standart sürekli rüzgar ölçümüne uygun.
+- **EMA Filtresi** (α = 0.3) — sıcaklık ve neme uygulanır.
+- **WindWindow** (10 örnek × 30s = 5 dk) — rüzgar hızı için kayan ortalama. RAWS standardı sürekli rüzgar ölçümüne uygun.
+
+### Hakim Rüzgar Yönü Modeli
+
+Her bölgenin `NodeConfig`'inde `prevailing_wind_dir` (hakim yön, 0-359°) ve `wind_dir_variance` (±std_dev derece) tanımlanmıştır. Rüzgar yönü bu parametrelerden Gauss gürültüsüyle üretilir:
+
+```
+wind_dir = prevailing_wind_dir + Gauss(0, variance)  mod 360
+```
+
+Bu sayede `SOUTH_WIND_SLOPE_HAZARD` kuralı yalnızca coğrafi olarak anlamlı bölgelerde (Muğla, Toros, Mersin, Antalya) tetiklenir.
 
 ---
 
@@ -252,56 +266,38 @@ Senaryolar bölge bazında HTTP API ile değiştirilir:
 | `activefire` | `flame_detected=true`, duman 500–1000 ppm, sıcaklık 45–70°C, CO₂ ~2000 ppm |
 | `sensorFault` | Rastgele geçersiz değerler (999.9°C, -%1 nem, null CO₂) — temizleme testi |
 
-Normal senaryo; mevsimsel ofsetler (Temmuz/Ağustos en yüksek risk) ve ormana özgü baz sıcaklıklar (Doğu Ladini 12°C — Maki 28°C) kullanır.
-
 ---
 
 ## Risk Skoru Motoru
 
 Risk hesabı `riskCalculator.ts` içinde **toplamlı bayrak sistemi** ile yapılır.
 
-### Adım 1 — Kuraklık Çarpanı
+### Kuraklık Çarpanı
 
 Open-Meteo'dan alınan gerçek hava verisi eşik değerlerini dinamik olarak ayarlar:
 
 | Kuraklık Sınıfı | 30 Günlük Yağış | Eşik Çarpanı |
 |---|---|---|
-| `ExtremeDrought` | < 10 mm | × 0.80 (eşikler düşer — risk artar) |
-| `ModerateDrought` | 10–40 mm | × 0.90 |
-| `NormalMoisture` | ≥ 40 mm | × 1.00 |
+| `ExtremeDrought` | < 2 mm | × 0.80 (eşikler düşer — risk artar) |
+| `ModerateDrought` | 2–10 mm | × 0.90 |
+| `NormalMoisture` | ≥ 10 mm | × 1.00 |
 
-### Adım 2 — Bayrak Değerlendirmesi
+### Bayraklar ve Ağırlıklar
 
-| Bayrak | Koşul |
-|---|---|
-| `FLAME_DETECTED` | `flameDetected === true` |
-| `HIGH_DROUGHT_RISK` | `sıcaklık > droughtTemp` VE `nem < droughtHum` |
-| `SMOKE_ALARM` | `smokePpm > smokeAlarm` |
-| `HIGH_SPREAD_RISK` | `rüzgar > spreadWind` VE `sıcaklık > spreadTemp` |
-| `EARLY_FIRE_SIGNAL` | `co2 > earlySignalCo2` VE `duman > earlySignalSmoke` |
-| `VALLEY_WIND_AMPLIFICATION` | Vadi topografyası VE `rüzgar > 6` VE `sıcaklık > 25` |
-| `RIDGE_WIND_EXPOSURE` | Sırt topografyası VE `rüzgar > 8` |
-| `SLOPE_FIRE_SPREAD_CRITICAL` | Yamaç topografyası VE `rüzgar > 5` VE `nem < 30` VE `sıcaklık > 30` |
+| Bayrak | Ağırlık | Koşul Özeti |
+|---|---|---|
+| `FLAME_DETECTED` | 65 | Alev sensörü aktif sinyal |
+| `SMOKE_ALARM` | 35 | Türe özgü duman eşiği aşıldı |
+| `SLOPE_FIRE_SPREAD_CRITICAL` | 30 | Yamaç + rüzgar > 5 + nem < 30 + sıcaklık > 30 |
+| `EARLY_FIRE_SIGNAL` | 25 | CO₂ + duman kombinasyonu |
+| `DOWNWIND_SPREAD_THREAT` | 25 | Komşu bölgede aktif yangın + rüzgar altı konum |
+| `HIGH_SPREAD_RISK` | 20 | Rüzgar + sıcaklık kombinasyonu |
+| `HIGH_DROUGHT_RISK` | 20 | Türe özgü sıcaklık + nem eşiği |
+| `VALLEY_WIND_AMPLIFICATION` | 15 | Vadi + rüzgar > 6 + sıcaklık > 25 |
+| `SOUTH_WIND_SLOPE_HAZARD` | 15 | Yamaç + güney rüzgarı 135°–225° + rüzgar > 4 + sıcaklık > 25 |
+| `RIDGE_WIND_EXPOSURE` | 10 | Sırt + rüzgar > 8 |
 
-### Adım 3 — Toplamlı Skorlama
-
-```
-skor = min(100, Σ ağırlıklar[bayrak])
-```
-
-| Bayrak | Ağırlık |
-|---|---|
-| FLAME_DETECTED | 65 |
-| SMOKE_ALARM | 35 |
-| SLOPE_FIRE_SPREAD_CRITICAL | 30 |
-| EARLY_FIRE_SIGNAL | 25 |
-| DOWNWIND_SPREAD_THREAT | 25 |
-| HIGH_SPREAD_RISK | 20 |
-| HIGH_DROUGHT_RISK | 20 |
-| VALLEY_WIND_AMPLIFICATION | 15 |
-| RIDGE_WIND_EXPOSURE | 10 |
-
-### Adım 4 — Risk Seviyesi
+### Risk Seviyeleri
 
 | Skor | Seviye |
 |---|---|
@@ -312,9 +308,10 @@ skor = min(100, Σ ağırlıklar[bayrak])
 
 ### Alarm Durum Makinesi
 
-- **Açılma:** skor ≥ 70 VE son kapanmadan bu yana 10 dakika geçmiş olmalı
+- **Açılma:** skor ≥ 55 VE son kapanmadan bu yana 10 dakika geçmiş olmalı
 - **Kapanma:** skor < 45
-- `justOpened` ve `justClosed` olayları PostgreSQL durumunu + MongoDB denetim kaydını günceller
+- EXTREME (≥80) durumunda soğuma süresi bypass edilir
+- `justOpened` ve `justClosed` olayları PostgreSQL `alarms` ve `alarm_events` tablolarına kaydedilir
 
 ---
 
@@ -322,38 +319,47 @@ skor = min(100, Σ ağırlıklar[bayrak])
 
 ### OWL 2 Çekirdeği (`pyrosense-core.owl`)
 
-Sınıf hiyerarşisi ve özellikler:
 - `SensorNode` — `forestType`, `topology`, GPS koordinatları
-- `SensorReading` — sıcaklık, nem, duman, rüzgar, CO₂, alev özellikleri; `ssn:isObservedBy` ile `SensorNode`'a bağlı
-- 12 orman tipi ve 3 topografya tipi için adlandırılmış bireyler
-- Her kural için `pyro:ruleWeight` ve `pyro:ruleLabel` annotation özellikleri
+- `SensorReading` — sıcaklık, nem, duman, rüzgar, CO₂, alev özellikleri; `ssn:isObservedBy` ile bağlı
+- 12 bölge için adlandırılmış bireyler (`Zone`)
+- Her kural için `pyro:ruleWeight` ve `rdfs:label` annotation özellikleri
 
-Backend başladığında ontoloji **otomatik olarak** yüklenir:
-1. Fuseki'nin ayağa kalkması beklenir (max 60s)
-2. `pyrosense` dataset'i Admin API ile silip `dbType=mem` write erişimiyle yeniden oluşturulur
-3. OWL dosyası SPARQL UPDATE ile `<http://pyrosense.io/ontology>` named graph'ına yüklenir
-4. Yükleme başarısıyla 365 triple doğrulanır
+### SPARQL Çıkarım Sorguları (`inferenceService.ts`)
+
+9 paralel SPARQL sorgusu (Q1–Q9), `Promise.all` ile eşzamanlı çalışır:
+
+| Sorgu | Bayrak |
+|---|---|
+| Q1 | `FLAME_DETECTED` |
+| Q2 | `HIGH_DROUGHT_RISK` |
+| Q3 | `SMOKE_ALARM` |
+| Q4 | `HIGH_SPREAD_RISK` |
+| Q5 | `EARLY_FIRE_SIGNAL` |
+| Q6 | `VALLEY_WIND_AMPLIFICATION` |
+| Q7 | `RIDGE_WIND_EXPOSURE` |
+| Q8 | `SLOPE_FIRE_SPREAD_CRITICAL` |
+| Q9 | `SOUTH_WIND_SLOPE_HAZARD` |
+
+Fuseki erişilemezse `RULE_META_STATIC` statik fallback devreye girer.
 
 ### Jena Kural Dili (`pyrosense-rules.jrl`)
 
-63+ kural; 12 orman tipi × 4 koşul kategorisi:
+64 kural; 12 orman tipi × 5 koşul kategorisi + 4 topografya kuralı:
 - `[ForestType_HighDroughtRisk]` — yüksek sıcaklık + düşük nem
 - `[ForestType_SmokeAlarm]` — duman PPM eşiği
 - `[ForestType_SpreadRisk]` — rüzgar hızı + sıcaklık kombinasyonu
 - `[ForestType_EarlyFireSignal]` — CO₂ + duman erken uyarısı
-
-Artı 3 topografya kuralı:
+- `[ForestType_FlameDetected]` — alev sensörü teyidi
 - `[Valley_WindAmplification]` — vadi kanalizasyon etkisi
 - `[Ridge_WindExposure]` — açık sırt rüzgar riski
-- `[Slope_FireSpreadCritical]` — yamaç + rüzgar + düşük nem + ısı
+- `[Slope_FireSpreadCritical]` — yamaç + rüzgar + kuru koşul
+- `[Slope_SouthWindHazard]` — güney rüzgarı (135°–225°) + yamaç baca etkisi
 
 ---
 
 ## Open-Meteo Hava Entegrasyonu
 
-[Open-Meteo](https://open-meteo.com/) (API anahtarsız, ücretsiz) her bölgenin koordinatları için gerçek yağış verisi çeker. Son 30 günlük günlük yağış toplamı kuraklık koşulunu belirler; bu da risk eşiklerini gerçek zamanlı ayarlar.
-
-Hava verisi başlangıçta çekilir ve her saat yenilenir. Sonuçlar `weather_cache` tablosuna ve `zones` tablosundaki `drought_index` sütununa kaydedilir.
+[Open-Meteo](https://open-meteo.com/) (API anahtarsız, ücretsiz) her bölgenin koordinatları için gerçek yağış verisi çeker. Son 30 günlük yağış toplamı kuraklık koşulunu belirler; bu da risk eşiklerini gerçek zamanlı ayarlar.
 
 ---
 
@@ -364,26 +370,15 @@ Hava verisi başlangıçta çekilir ve her saat yenilenir. Sonuçlar `weather_ca
 | Tablo | Tür | Açıklama |
 |---|---|---|
 | `sensor_readings` | hypertable | Ham sensör verisi, zaman indeksli |
-| `risk_scores` | hypertable | Bölge başına hesaplanan risk skoru |
+| `risk_scores` | hypertable | Bölge başına hesaplanan risk skoru + senaryo etiketi |
 | `alarms` | normal tablo | OPEN/CLOSED yaşam döngüsüyle alarm durumu |
+| `alarm_events` | normal tablo | Değiştirilemez denetim izi — her OPENED/CLOSED olayı |
 | `zones` | normal tablo | Bölge meta verisi + güncel kuraklık indeksi |
 | `weather_cache` | normal tablo | Open-Meteo fetch geçmişi |
-
-**alarms tablosu notları:**
-- `acknowledged` — operatör onayı için hazır (henüz arayüzde aktif değil)
-- `notified_email`, `notified_sms` — bildirim entegrasyonu için hazır alanlar
-
-### MongoDB Koleksiyonu
-
-| Koleksiyon | Açıklama |
-|---|---|
-| `alarm_events` | Değiştirilemez denetim izi — her OPENED ve CLOSED olayı tam bağlamıyla |
 
 ---
 
 ## Ortam Değişkenleri
-
-`.env` dosyasını kopyalayıp düzenle. Tüm değişkenler backend tarafından gereklidir.
 
 ```env
 # MQTT
@@ -402,23 +397,12 @@ ONTOLOGY_GRAPH=http://pyrosense.io/ontology
 # PostgreSQL
 DATABASE_URL=postgresql://pyrosense:pyrosense123@localhost:5434/pyrosense
 
-# MongoDB
-MONGO_URL=mongodb://pyrosense:pyrosense123@localhost:27017/pyrosense?authSource=admin
-
 # Open-Meteo (API anahtarsız)
 OPEN_METEO_URL=https://api.open-meteo.com/v1
 
 # Backend
 BACKEND_PORT=3001
 WEBSOCKET_PORT=3002
-
-# E-posta bildirimi (geliştirme modunda kapalı)
-SMTP_ENABLED=false
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your_email@gmail.com
-SMTP_PASS=your_app_password
-ALARM_EMAIL_TO=admin@pyrosense.local
 ```
 
 ---
@@ -433,7 +417,6 @@ ALARM_EMAIL_TO=admin@pyrosense.local
 | Simülatör HTTP API | http://localhost:8090 | — |
 | Apache Jena Fuseki | http://localhost:3030 | admin / pyrosense123 |
 | Adminer (PostgreSQL) | http://localhost:8082 | server: `postgres`, user: `pyrosense`, pass: `pyrosense123` |
-| Mongo Express | http://localhost:8081 | — (geliştirme modunda kimlik doğrulamasız) |
 | Mosquitto (MQTT) | mqtt://localhost:1883 | — |
 
 ---
@@ -441,15 +424,6 @@ ALARM_EMAIL_TO=admin@pyrosense.local
 ## API Referansı
 
 Tam API dokümantasyonu için bkz: [docs/API.md](docs/API.md)
-
----
-
-## Kalıcılık Stratejisi
-
-PyroSense **çok modelli kalıcılık** kullanır:
-
-- **PostgreSQL + TimescaleDB** — operasyonel durum. Alarm açık/kapalı durumu, zaman serisi sensör ve risk verileri. Zaman aralığı sorguları ve bölge tabanlı aramalar için optimize edilmiş.
-- **MongoDB** — değiştirilemez denetim izi. Her alarm yaşam döngüsü olayı (`OPENED`, `CLOSED`) tam bağlamıyla (skor, seviye, bayraklar, zaman) ekleme-sonrası-güncellenmez belge olarak yazılır.
 
 ---
 

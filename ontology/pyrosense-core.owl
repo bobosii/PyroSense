@@ -161,12 +161,12 @@ pyro:zone_scotspine a owl:NamedIndividual, pyro:Zone ;
 
 pyro:zone_tauruscedar a owl:NamedIndividual, pyro:Zone ;
     pyro:zoneId     "zone_tauruscedar" ;
-    pyro:latitude   "37.1000"^^xsd:double ;
-    pyro:longitude  "34.6000"^^xsd:double ;
+    pyro:latitude   "37.2800"^^xsd:double ;
+    pyro:longitude  "34.6200"^^xsd:double ;
     pyro:hasForestType pyro:ConiferForest ;
     pyro:hasTopology   pyro:SlopeTopology ;
-    rdfs:label      "Toros Sediri — Toros Dağları/Mersin" ;
-    rdfs:comment    "Toros Dağları endemik sedir ormanı." .
+    rdfs:label      "Toros Sediri — Çamlıyayla/Mersin" ;
+    rdfs:comment    "Çamlıyayla Toros Sediri ormanı — Mersin ilinde endemik sedir habitatı." .
 
 pyro:zone_silverfir a owl:NamedIndividual, pyro:Zone ;
     pyro:zoneId     "zone_silverfir" ;
@@ -215,12 +215,12 @@ pyro:zone_alder a owl:NamedIndividual, pyro:Zone ;
 
 pyro:zone_shrubland a owl:NamedIndividual, pyro:Zone ;
     pyro:zoneId     "zone_shrubland" ;
-    pyro:latitude   "36.8841"^^xsd:double ;
-    pyro:longitude  "30.7056"^^xsd:double ;
+    pyro:latitude   "36.5500"^^xsd:double ;
+    pyro:longitude  "30.5500"^^xsd:double ;
     pyro:hasForestType pyro:ShrubLand ;
     pyro:hasTopology   pyro:SlopeTopology ;
-    rdfs:label      "Maki — Antalya Kıyısı" ;
-    rdfs:comment    "Akdeniz kuru maki, yaz kuraklığında yüksek yangın riski." .
+    rdfs:label      "Maki — Kemer/Antalya" ;
+    rdfs:comment    "Kemer çevresi Akdeniz makisi — yaz kuraklığında yüksek yangın riski." .
 
 pyro:zone_juniper a owl:NamedIndividual, pyro:Zone ;
     pyro:zoneId     "zone_juniper" ;
@@ -271,7 +271,7 @@ pyro:co2Ppm           a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; 
 # Risk çıktısı — SensorReading üzerinde (Jena rule motoru bu özelliğe yazar)
 pyro:riskFlag         a owl:DatatypeProperty ; rdfs:domain pyro:SensorReading ; rdfs:range xsd:string ;
     rdfs:label "Risk Bayrağı" ;
-    rdfs:comment "Jena kural motorunun tetiklenen kural sonucunu yazdığı özellik. Değerler: HIGH_DROUGHT_RISK, SMOKE_ALARM, HIGH_SPREAD_RISK, EARLY_FIRE_SIGNAL, FLAME_DETECTED, VALLEY_WIND_AMPLIFICATION, RIDGE_WIND_EXPOSURE, SLOPE_FIRE_SPREAD_CRITICAL" .
+    rdfs:comment "Jena kural motorunun tetiklenen kural sonucunu yazdığı özellik. Değerler: HIGH_DROUGHT_RISK, SMOKE_ALARM, HIGH_SPREAD_RISK, EARLY_FIRE_SIGNAL, FLAME_DETECTED, VALLEY_WIND_AMPLIFICATION, RIDGE_WIND_EXPOSURE, SLOPE_FIRE_SPREAD_CRITICAL, SOUTH_WIND_SLOPE_HAZARD" .
 
 # SensorNode üzerindeki bağlamsal özellikler
 # NOT: rdfConverter.ts bu değerleri SensorNode üzerine string literal olarak yazar.
@@ -421,6 +421,12 @@ pyro:rule_DOWNWIND_SPREAD_THREAT a owl:NamedIndividual, pyro:RiskRule ;
     pyro:ruleWeight "25"^^xsd:integer ;
     rdfs:label      "Rüzgar Altı Yayılım Tehdidi" ;
     rdfs:comment    "Komşu bölgede aktif yangın + mevcut bölge rüzgar altı konumunda. Bölgeler arası yayılım riski." .
+
+pyro:rule_SOUTH_WIND_SLOPE_HAZARD a owl:NamedIndividual, pyro:RiskRule ;
+    pyro:ruleId     "SOUTH_WIND_SLOPE_HAZARD" ;
+    pyro:ruleWeight "15"^^xsd:integer ;
+    rdfs:label      "Güney Rüzgar Yamaç Tehlikesi" ;
+    rdfs:comment    "Yamaç topolojisinde güney sektörü rüzgarı (135°–225°: Keşişleme/Kıble/Lodos) + rüzgar > 4 m/s + sıcaklık > 25°C. Güney kökenli sıcak-kuru rüzgar yamacı yukarı iter; alevler önündeki vejetasyonu önceden ısıtarak yayılma hızını 2-3× artırır (baca etkisi)." .
 
 # ============================================================
 # BÖLÜM 6: SWRL KURALLARI

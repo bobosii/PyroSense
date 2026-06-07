@@ -36,7 +36,7 @@ export function toRdfTurtle(
     pyro:humidity       "${sanitize(msg.readings.humidity)}"^^xsd:double ;
     pyro:smokePpm       "${sanitize(msg.readings.smoke_ppm)}"^^xsd:double ;
     pyro:windSpeedMs    "${sanitize(msg.readings.wind_speed_ms)}"^^xsd:double ;
-    pyro:windDirDeg     "${sanitize(msg.readings.wind_dir_deg)}" ;
+    pyro:windDirDeg     "${sanitize(msg.readings.wind_dir_deg)}"^^xsd:double ;
     pyro:uvIndex        "${sanitize(msg.readings.uv_index)}" ;
     pyro:co2Ppm         "${sanitize(msg.readings.co2_ppm ?? 0)}"^^xsd:double ;
     pyro:flameDetected  "${msg.readings.flame_detected}"^^xsd:boolean ;

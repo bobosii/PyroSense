@@ -112,7 +112,9 @@ impl SensorPhysics {
             wind_speed
         };
 
-        let wind_dir = rng.gen_range(0..360) as u16;
+        // Bölge bazlı hakim rüzgar yönü ± Gauss varyansı.
+        // 360° wrap-around: negatif veya 360+ değerler modulo ile düzeltilir.
+        let wind_dir = prevailing_wind_dir(rng, node.prevailing_wind_dir, node.wind_dir_variance);
 
         Readings {
             temperature: round2(temp),
@@ -176,7 +178,9 @@ impl SensorPhysics {
             smoke_ppm: round2(smoke),
             uv_index: 10.0,
             wind_speed_ms: round2(wind),
-            wind_dir_deg: rng.gen_range(0..360) as u16,
+            // Aktif yangında da bölgenin hakim rüzgar yönü geçerli;
+            // yangın bu rüzgarın yönüne doğru yayılır.
+            wind_dir_deg: prevailing_wind_dir(rng, node.prevailing_wind_dir, node.wind_dir_variance),
             flame_detected: true,
             co2_ppm: Some(round2(2000.0 + gaussian(rng, 0.0, 200.0))),
         }
@@ -224,6 +228,19 @@ impl SensorPhysics {
 fn gaussian(rng: &mut impl Rng, mean: f64, std_dev: f64) -> f64 {
     let normal = Normal::new(mean, std_dev).expect("Normal dağılım parametresi hatalı");
     normal.sample(rng)
+}
+
+/// Bölge bazlı hakim rüzgar yönü üretici.
+///
+/// prevailing: hakim yön (0-359°), variance: ±std_dev (derece).
+/// Gauss gürültüsü eklenir ve 360° wrap-around uygulanır:
+///   - negatif sonuç (örn. 350° + (-20°) = 330°) → doğru
+///   - 360°'yi aşan sonuç (örn. 10° + 370° = 20°) → modulo ile düzeltilir
+fn prevailing_wind_dir(rng: &mut impl Rng, prevailing: u16, variance: u16) -> u16 {
+    let noise = gaussian(rng, 0.0, variance as f64);
+    let raw = prevailing as f64 + noise;
+    // rem_euclid: her zaman 0.0..360.0 aralığında pozitif sonuç döner
+    (raw.rem_euclid(360.0).round() as u16) % 360
 }
 
 /// Weibull dağılımlı rüzgar hızı üretimi
