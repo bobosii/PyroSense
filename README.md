@@ -49,7 +49,8 @@ PyroSense; OWL 2 ontoloji ve SPARQL çıkarım motoru kullanan, Türkiye'nin 12 
 │  1. saveSensorReading()    → PostgreSQL / TimescaleDB            │
 │  2. toRdfTurtle()          → RDF Turtle serileştirme             │
 │  3. uploadTurtle()         → Apache Jena Fuseki  :3030           │
-│  4. inferRiskFlags()       → SPARQL çıkarım (Q1–Q9)             │
+│  4. materializeRuleFlags() → SPARQL INSERT (9 sorgu, .jrl kuralları) │
+│     inferRiskFlags()       → SPARQL SELECT (pyro:riskFlag okur) │
 │  5. getZoneDrought()       ← PostgreSQL kuraklık indeksi         │
 │  6. calculateRisk()        → Toplamlı bayrak skorlaması (0-100)  │
 │  7. evaluateAlarm()        → Histerezis (aç≥55, kapat<45)        │
@@ -111,7 +112,9 @@ PyroSense/
 │           ├── mqttConsumer.ts      # 11 adımlı pipeline
 │           ├── rdfConverter.ts      # JSON → RDF Turtle (windDirDeg dahil ^^xsd:double)
 │           ├── fusekiClient.ts      # Fuseki Admin API + SPARQL UPDATE ile ontoloji yükleme
-│           ├── inferenceService.ts  # SPARQL çıkarım Q1–Q9 + statik fallback
+│           ├── inferenceService.ts  # materializeRuleFlags() + inferRiskFlags() + downwind
+│           ├── generated/
+│           │   └── ruleThresholds.ts    # AUTO-GENERATED (npm run codegen)
 │           ├── riskCalculator.ts    # Bayrak tabanlı toplamlı skorlama
 │           ├── alarmManager.ts      # Histerezis + soğuma süresi durum makinesi
 │           ├── weatherService.ts    # Open-Meteo fetch + kuraklık sınıflandırması
@@ -139,9 +142,12 @@ PyroSense/
 │           ├── AnalyticsPage.tsx    # Doğrulama metrikleri
 │           └── SourcesPage.tsx      # Bilimsel kaynaklar sayfası
 │
+├── scripts/
+│   └── jrl_to_sparql.py        # Codegen: .jrl → ruleThresholds.ts (npm run codegen)
+│
 ├── ontology/
 │   ├── pyrosense-core.owl      # OWL 2 ontoloji (sınıflar, özellikler, bireyler, kural ağırlıkları)
-│   └── pyrosense-rules.jrl     # 64 Jena kural dili kuralı
+│   └── pyrosense-rules.jrl     # 67 Jena kural dili kuralı (kaynak dosya — codegen input)
 │
 ├── config/
 │   ├── mosquitto/mosquitto.conf
@@ -324,36 +330,36 @@ Open-Meteo'dan alınan gerçek hava verisi eşik değerlerini dinamik olarak aya
 - 12 bölge için adlandırılmış bireyler (`Zone`)
 - Her kural için `pyro:ruleWeight` ve `rdfs:label` annotation özellikleri
 
-### SPARQL Çıkarım Sorguları (`inferenceService.ts`)
+### Jena Kural Dili (`pyrosense-rules.jrl`) — Tek Kaynak
 
-9 paralel SPARQL sorgusu (Q1–Q9), `Promise.all` ile eşzamanlı çalışır:
-
-| Sorgu | Bayrak |
-|---|---|
-| Q1 | `FLAME_DETECTED` |
-| Q2 | `HIGH_DROUGHT_RISK` |
-| Q3 | `SMOKE_ALARM` |
-| Q4 | `HIGH_SPREAD_RISK` |
-| Q5 | `EARLY_FIRE_SIGNAL` |
-| Q6 | `VALLEY_WIND_AMPLIFICATION` |
-| Q7 | `RIDGE_WIND_EXPOSURE` |
-| Q8 | `SLOPE_FIRE_SPREAD_CRITICAL` |
-| Q9 | `SOUTH_WIND_SLOPE_HAZARD` |
-
-Fuseki erişilemezse `RULE_META_STATIC` statik fallback devreye girer.
-
-### Jena Kural Dili (`pyrosense-rules.jrl`)
-
-64 kural; 12 orman tipi × 5 koşul kategorisi + 4 topografya kuralı:
-- `[ForestType_HighDroughtRisk]` — yüksek sıcaklık + düşük nem
-- `[ForestType_SmokeAlarm]` — duman PPM eşiği
-- `[ForestType_SpreadRisk]` — rüzgar hızı + sıcaklık kombinasyonu
+67 kural; 12 orman tipi × 5 koşul kategorisi + 4 topoloji + 3 kuraklık çarpanı:
+- `[ForestType_HighDroughtRisk]` — yüksek sıcaklık + düşük nem (kuraklık çarpanı ×0.8–1.0)
+- `[ForestType_SmokeAlarm]` — tür başına kalibre edilmiş duman PPM eşiği (kuraklık çarpanı)
+- `[ForestType_SpreadRisk]` — rüzgar hızı + sıcaklık kombinasyonu (kuraklık çarpanı)
 - `[ForestType_EarlyFireSignal]` — CO₂ + duman erken uyarısı
 - `[ForestType_FlameDetected]` — alev sensörü teyidi
 - `[Valley_WindAmplification]` — vadi kanalizasyon etkisi
 - `[Ridge_WindExposure]` — açık sırt rüzgar riski
 - `[Slope_FireSpreadCritical]` — yamaç + rüzgar + kuru koşul
 - `[Slope_SouthWindHazard]` — güney rüzgarı (135°–225°) + yamaç baca etkisi
+- `[DroughtMult_Extreme/Moderate/Normal]` — kuraklık çarpanı yardımcı kuralları
+
+### Çıkarım Pipeline'ı
+
+```
+pyrosense-rules.jrl  ──(npm run codegen)──▶  generated/ruleThresholds.ts
+                                                         │
+                                               materializeRuleFlags()
+                                               9 × SPARQL INSERT → Fuseki
+                                               pyro:riskFlag triple'ları oluşur
+                                                         │
+                                               inferRiskFlags()
+                                               SELECT ?flag WHERE { <uri> pyro:riskFlag ?flag }
+```
+
+Çıkarım kuralları `pyrosense-rules.jrl` dosyasında Jena GenericRuleReasoner formatında formel olarak belirtilmiş; çalışma zamanında SPARQL 1.1 UPDATE materializasyonuyla eşdeğer biçimde yürütülmektedir. Eşik değerleri otomatik kod üretimi (`npm run codegen`) ile .jrl'den backend'e aktarılmakta, böylece herhangi bir eşik değişikliği yalnızca `.jrl` güncellemesi ve `codegen` komutuyla tüm sisteme yansıtılmaktadır.
+
+Fuseki erişilemezse `RULE_META_STATIC` statik fallback devreye girer.
 
 ---
 

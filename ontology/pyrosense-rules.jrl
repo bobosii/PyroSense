@@ -3,7 +3,13 @@
 #  Orman tipine göre diferansiye edilmiş yangın risk kuralları
 #  + Topoloji bazlı risk yükseltme kuralları
 #
-#  Toplam: 60 orman tipi kuralı + 4 topoloji kuralı = 64 kural
+#  Toplam: 60 orman tipi kuralı + 4 topoloji kuralı + 3 kuraklık çarpanı = 67 kural
+#
+#  DEĞİŞİKLİK NOTLARI (v2.1 → v3.0):
+#    - DroughtMult helper kuralları eklendi (3 adet)
+#    - HighDroughtRisk/SmokeAlarm/SpreadRisk kuralları (36 adet)
+#      product() built-in ile kuraklık çarpanı entegrasyonu yapıldı
+#    - Tüm eşikler artık kuraklık koşuluna göre dinamik olarak ayarlanır
 #
 #  DEĞİŞİKLİK NOTLARI (v2 → v2.1):
 #    - windDirDeg tipi düzeltildi: plain string → ^^xsd:double (rdfConverter.ts)
@@ -46,6 +52,36 @@
 #    Slope_FireSpread
 # ============================================================
 
+# ============================================================
+# KURAKLIK ÇARPAN KURALLARI (Önce ateşlenir — ileri zincirleme)
+#
+# droughtClass string değerini sayısal çarpana dönüştürür.
+# Bu türetilmiş triple'lar, aşağıdaki orman tipi kurallarının
+# product() çağrısında kullanılır:
+#   ExtremeDrought  → ?mult = 0.8  (eşikleri %20 düşürür)
+#   ModerateDrought → ?mult = 0.9  (eşikleri %10 düşürür)
+#   NormalMoisture  → ?mult = 1.0  (eşikler değişmez)
+# ============================================================
+
+[DroughtMult_Extreme:
+  (?node <http://pyrosense.io/ontology#droughtClass> "ExtremeDrought")
+  ->
+  (?node <http://pyrosense.io/ontology#droughtMult> 0.8)
+]
+
+[DroughtMult_Moderate:
+  (?node <http://pyrosense.io/ontology#droughtClass> "ModerateDrought")
+  ->
+  (?node <http://pyrosense.io/ontology#droughtMult> 0.9)
+]
+
+[DroughtMult_Normal:
+  (?node <http://pyrosense.io/ontology#droughtClass> "NormalMoisture")
+  ->
+  (?node <http://pyrosense.io/ontology#droughtMult> 1.0)
+]
+
+
 # ------------------------------------------------------------
 # 1. RED PINE — Kızılçam (Pinus brutia)
 # En yüksek yangın riski — Akdeniz-Ege kıyı kuşağı, reçineli
@@ -57,10 +93,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 32)
-  lessThan(?hum, 30)
+  product(32.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -69,8 +107,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 75)
+  product(75.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -79,10 +119,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "RedPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 30)
+  product(7.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -118,10 +160,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 30)
-  lessThan(?hum, 30)
+  product(30.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -130,8 +174,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 75)
+  product(75.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -140,10 +186,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "BlackPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 27)
+  product(7.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 27.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -180,10 +228,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 28)
-  lessThan(?hum, 30)
+  product(28.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -192,8 +242,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 80)
+  product(80.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -202,10 +254,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "ScotsPine")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 25)
+  product(7.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 25.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -242,10 +296,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 30)
-  lessThan(?hum, 28)
+  product(30.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -254,8 +310,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 85)
+  product(85.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -264,10 +322,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "TaurusCedar")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 28)
+  product(7.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -304,10 +364,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 33)
-  lessThan(?hum, 25)
+  product(33.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 25.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -316,8 +378,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 105)
+  product(72.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -326,10 +390,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "SilverFir")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 9)
-  greaterThan(?temp, 28)
+  product(9.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -367,10 +433,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 33)
-  lessThan(?hum, 22)
+  product(33.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 22.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -379,8 +447,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 140)
+  product(72.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -389,10 +459,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalSpruce")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 10)
-  greaterThan(?temp, 28)
+  product(10.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -431,10 +503,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 34)
-  lessThan(?hum, 25)
+  product(34.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 25.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -443,8 +517,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 110)
+  product(80.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -453,10 +529,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Oak")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 9)
-  greaterThan(?temp, 30)
+  product(9.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -494,10 +572,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 35)
-  lessThan(?hum, 25)
+  product(35.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 25.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -506,8 +586,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 120)
+  product(72.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -516,10 +598,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "OrientalBeech")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 10)
-  greaterThan(?temp, 32)
+  product(10.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 32.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -558,10 +642,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 36)
-  lessThan(?hum, 20)
+  product(36.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 20.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -570,8 +656,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 130)
+  product(72.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -580,10 +668,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Alder")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 11)
-  greaterThan(?temp, 33)
+  product(11.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 33.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -621,10 +711,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 30)
-  lessThan(?hum, 25)
+  product(30.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 25.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -633,8 +725,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 60)
+  product(60.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -643,10 +737,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Shrubland")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 6)
-  greaterThan(?temp, 28)
+  product(6.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -683,10 +779,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 30)
-  lessThan(?hum, 28)
+  product(30.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -695,8 +793,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 80)
+  product(80.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -705,10 +805,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Juniper")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 7)
-  greaterThan(?temp, 27)
+  product(7.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 27.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]
@@ -747,10 +849,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
   (?reading <http://pyrosense.io/ontology#humidity> ?hum)
-  greaterThan(?temp, 31)
-  lessThan(?hum, 30)
+  product(31.0, ?mult, ?adjTemp)
+  greaterThan(?temp, ?adjTemp)
+  lessThan(?hum, 30.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_DROUGHT_RISK")
 ]
@@ -759,8 +863,10 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#smokePpm> ?smoke)
-  greaterThan(?smoke, 90)
+  product(90.0, ?mult, ?adjSmoke)
+  greaterThan(?smoke, ?adjSmoke)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "SMOKE_ALARM")
 ]
@@ -769,10 +875,12 @@
   (?reading rdf:type <http://pyrosense.io/ontology#SensorReading>)
   (?reading <http://www.w3.org/ns/ssn/isObservedBy> ?node)
   (?node <http://pyrosense.io/ontology#forestType> "Mixed")
+  (?node <http://pyrosense.io/ontology#droughtMult> ?mult)
   (?reading <http://pyrosense.io/ontology#windSpeedMs> ?wind)
   (?reading <http://pyrosense.io/ontology#temperature> ?temp)
-  greaterThan(?wind, 8)
-  greaterThan(?temp, 28)
+  product(8.0, ?mult, ?adjWind)
+  greaterThan(?wind, ?adjWind)
+  greaterThan(?temp, 28.0)
   ->
   (?reading <http://pyrosense.io/ontology#riskFlag> "HIGH_SPREAD_RISK")
 ]

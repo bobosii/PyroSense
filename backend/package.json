@@ -7,7 +7,8 @@
         "dev": "ts-node src/index.ts",
         "test": "echo \"Error: no test specified\" && exit 1",
         "format": "prettier --write .",
-        "build": "tsc"
+        "build": "tsc",
+        "codegen": "python3 ../scripts/jrl_to_sparql.py"
     },
     "keywords": [],
     "author": "",

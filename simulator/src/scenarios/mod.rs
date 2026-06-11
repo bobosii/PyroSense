@@ -91,8 +91,14 @@ impl SensorPhysics {
         let humidity = (75.0 + seasonal_humidity - diurnal_offset * 2.0 + gaussian(rng, 0.0, 2.0))
             .clamp(20.0, 95.0);
 
-        // Duman: normal koşullarda çok düşük
-        let smoke = (5.0 + gaussian(rng, 0.0, 1.5)).clamp(0.0, 15.0);
+        // Duman: normal koşullarda çok düşük.
+        // %4 ihtimalle "komşu saha yangını / pollen sisi" etkisi — anlık spike.
+        // Bu durum gerçek sensörlerde FP alarmına yol açabilir.
+        let smoke = if rng.gen_bool(0.04) {
+            (70.0 + gaussian(rng, 0.0, 20.0)).clamp(50.0, 120.0)
+        } else {
+            (5.0 + gaussian(rng, 0.0, 1.5)).clamp(0.0, 15.0)
+        };
 
         // UV: gündüz yüksek, gece sıfır
         let uv = if (6..=18).contains(&hour) {
@@ -133,14 +139,14 @@ impl SensorPhysics {
     fn prefire(node: &NodeConfig, hour: u32, rng: &mut impl Rng) -> Readings {
         let base = Self::normal(node, hour, rng);
 
-        // Duman belirgin biçimde artıyor (100-300 PPM)
-        let smoke = (150.0 + gaussian(rng, 0.0, 30.0)).clamp(80.0, 350.0);
+        // Duman artıyor — gürültü artırıldı (std 30→40): duman yükselişi dalgalıdır
+        let smoke = (130.0 + gaussian(rng, 0.0, 40.0)).clamp(50.0, 350.0);
 
-        // Sıcaklık +5-10°C yüksek
-        let temp = (base.temperature + 7.0 + gaussian(rng, 0.0, 1.0)).clamp(35.0, 50.0);
+        // Sıcaklık +5-10°C yüksek — alt clamp 35→30: erken prefire geçişini modeller
+        let temp = (base.temperature + 6.0 + gaussian(rng, 0.0, 2.0)).clamp(30.0, 50.0);
 
-        // Nem kritik düzeyde düşük
-        let humidity = (15.0 + gaussian(rng, 0.0, 3.0)).clamp(8.0, 25.0);
+        // Nem düşük — üst clamp 25→32: çok az okuma eşiğin üstünde kalabilir
+        let humidity = (16.0 + gaussian(rng, 0.0, 5.0)).clamp(8.0, 32.0);
 
         // Rüzgar artar (ısınma + basınç farkı)
         let wind = (weibull_wind(rng, 6.0, 2.0)).clamp(4.0, 15.0);

@@ -9,11 +9,34 @@ import {
 import path from "path";
 import fs from "fs";
 
+// Sensör verisini Fuseki default graph'a yükle.
+// GSP (/data) yerine SPARQL UPDATE kullanılır: ja:InfModel tabanlı
+// datasetlerde /data endpoint yazma hatası verebilir; /update endpoint
+// doğrudan base model'e (sensorGraph) yazar ve reasoner tepki verir.
 export async function uploadTurtle(turtle: string): Promise<void> {
-    const url = `${FUSEKI_URL}/${FUSEKI_DATASET}/data`;
+    const url = `${FUSEKI_URL}/${FUSEKI_DATASET}/update`;
 
-    await axios.post(url, turtle, {
-        headers: { "Content-Type": "text/turtle" },
+    // Turtle → SPARQL INSERT DATA (default graph — GRAPH clause yok)
+    const prefixLines: string[] = [];
+    const tripleLines: string[] = [];
+    for (const line of turtle.split("\n")) {
+        const t = line.trimStart();
+        if (t.startsWith("@prefix")) {
+            prefixLines.push(
+                t.replace(/^@prefix\s+/, "PREFIX ").replace(/\s*\.\s*$/, ""),
+            );
+        } else if (t.startsWith("@base")) {
+            prefixLines.push(
+                t.replace(/^@base\s+/, "BASE ").replace(/\s*\.\s*$/, ""),
+            );
+        } else {
+            tripleLines.push(line);
+        }
+    }
+    const update = `${prefixLines.join("\n")}\nINSERT DATA {\n${tripleLines.join("\n")}\n}`;
+
+    await axios.post(url, update, {
+        headers: { "Content-Type": "application/sparql-update" },
         auth: { username: FUSEKI_USER, password: FUSEKI_PASSWORD },
     });
 }
@@ -125,7 +148,6 @@ export async function loadOntology(): Promise<void> {
     // Fuseki tamamen ayağa kalkana kadar bekle
     await waitForFuseki(60);
 
-    // Dataset'i write erişimiyle yeniden oluştur
     await ensureDatasetWritable();
 
     const owlPath = path.resolve(__dirname, "../../../ontology/pyrosense-core.owl");

@@ -400,42 +400,15 @@ export default function SourcesPage() {
                         fontWeight: 600,
                     }}
                 >
-                    Kaynaklar ve Sistem Bilgisi
+                    Sistem Bilgisi
                 </h2>
                 <p style={{ margin: "4px 0 0", color: "var(--text-dim)", fontSize: 12 }}>
-                    Servis sağlığı, ontoloji referansı ve veri kaynakları
+                    ontoloji referansı ve veri kaynakları
                 </p>
             </div>
 
-            {/* Sistem Durumu */}
-            <Section title="🔌 Sistem Durumu">
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-                        gap: 12,
-                    }}
-                >
-                    <ServiceBadge
-                        name="PostgreSQL / TimescaleDB"
-                        health={health?.postgres}
-                        icon="🗄️"
-                    />
-                    <ServiceBadge
-                        name="Apache Jena Fuseki"
-                        health={health?.fuseki}
-                        icon="🧠"
-                    />
-                    <ServiceBadge
-                        name="MQTT (Mosquitto)"
-                        health={health?.mqtt}
-                        icon="📡"
-                    />
-                </div>
-            </Section>
-
             {/* Risk Kuralları */}
-            <Section title="🔥 OWL Risk Kuralları (9 Bayrak)">
+            <Section title="OWL Risk Kuralları (9 Bayrak)">
                 <p
                     style={{
                         color: "var(--text-dim)",
@@ -465,7 +438,7 @@ export default function SourcesPage() {
             </Section>
 
             {/* Orman Tipleri */}
-            <Section title="🌲 12 Orman Tipi — Yangın Risk Profilleri">
+            <Section title="12 Orman Tipi — Yangın Risk Profilleri">
                 <div style={{ overflowX: "auto" }}>
                     <table
                         style={{

@@ -84,9 +84,15 @@ export async function fetchWeather(zoneId: string): Promise<WeatherData | null> 
 }
 
 export async function fetchAllZones(): Promise<WeatherData[]> {
-    const results = await Promise.all(
-        Object.keys(ZONE_COORDS).map((zoneId) => fetchWeather(zoneId)),
-    );
+    // Promise.all ile 12 eş zamanlı istek Open-Meteo rate limitini (429) tetikliyor.
+    // 300ms arayla sıralı fetch yaparak rate limiti aşıyoruz.
+    const results: (WeatherData | null)[] = [];
+    const zoneIds = Object.keys(ZONE_COORDS);
+
+    for (const zoneId of zoneIds) {
+        results.push(await fetchWeather(zoneId));
+        await new Promise((r) => setTimeout(r, 300));
+    }
 
     return results.filter((r): r is WeatherData => r !== null);
 }
